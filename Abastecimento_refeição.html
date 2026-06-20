@@ -428,14 +428,33 @@
         window.cacheDados = {};
         window.cacheCadastro = {};
 
+        function stableStringify(obj) {
+            if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);
+            if (Array.isArray(obj)) return '[' + obj.map(stableStringify).join(',') + ']';
+            const keys = Object.keys(obj).sort();
+            const res = [];
+            for (let k of keys) res.push(JSON.stringify(k) + ':' + stableStringify(obj[k]));
+            return '{' + res.join(',') + '}';
+        }
+
         onSnapshot(docRefDados, (docSnap) => {
-            if(docSnap.exists()) window.cacheDados = docSnap.data();
-            if(window.carregarDia) window.carregarDia();
+            if(docSnap.exists()) {
+                const newData = docSnap.data();
+                if(stableStringify(window.cacheDados) !== stableStringify(newData)) {
+                    window.cacheDados = newData;
+                    if(window.carregarDia) window.carregarDia();
+                }
+            }
         });
 
         onSnapshot(docRefCadastro, (docSnap) => {
-            if(docSnap.exists()) window.cacheCadastro = docSnap.data();
-            if(window.carregarDia) window.carregarDia();
+            if(docSnap.exists()) {
+                const newData = docSnap.data();
+                if(stableStringify(window.cacheCadastro) !== stableStringify(newData)) {
+                    window.cacheCadastro = newData;
+                    if(window.carregarDia) window.carregarDia();
+                }
+            }
         });
 
         window.salvarDadosFirebase = function(dados) {

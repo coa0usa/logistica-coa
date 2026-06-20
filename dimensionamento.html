@@ -582,10 +582,14 @@ function saveAll() {
   }, 1000);
 }
 
+let cacheData = null;
 function loadAll() {
   onSnapshot(doc(db, "torre_logistica", "dimensionamento"), (docSnap) => {
       if(!docSnap.exists()) return;
       const data = docSnap.data();
+      if(JSON.stringify(cacheData) === JSON.stringify(data)) return;
+      cacheData = data;
+      
       Object.entries(data).forEach(([id, val]) => {
         const [k, c] = id.split(':');
         let sel;

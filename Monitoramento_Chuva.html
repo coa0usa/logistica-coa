@@ -296,25 +296,41 @@ window.tirarPrint = async function() {
         window.dadosChuvaCache = { frentes: {}, obs: "" };
         let init = false;
 
+        function stableStringify(obj) {
+            if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);
+            if (Array.isArray(obj)) return '[' + obj.map(stableStringify).join(',') + ']';
+            const keys = Object.keys(obj).sort();
+            const res = [];
+            for (let k of keys) res.push(JSON.stringify(k) + ':' + stableStringify(obj[k]));
+            return '{' + res.join(',') + '}';
+        }
+
         onSnapshot(docRefFrentes, (docSnap) => {
             if(docSnap.exists()) {
-                window.dadosLogCache = docSnap.data();
-                if(!window.dadosLogCache.frentes) window.dadosLogCache.frentes = [];
+                const newData = docSnap.data();
+                if(stableStringify(window.dadosLogCache) !== stableStringify(newData)) {
+                    window.dadosLogCache = newData;
+                    if(!window.dadosLogCache.frentes) window.dadosLogCache.frentes = [];
+                    if(init && window.sincronizarComLogistica) window.sincronizarComLogistica();
+                }
             }
-            if(init && window.sincronizarComLogistica) window.sincronizarComLogistica();
         });
 
         onSnapshot(docRefChuva, (docSnap) => {
             if(docSnap.exists()) {
-                window.dadosChuvaCache = docSnap.data();
-                if(!window.dadosChuvaCache.frentes) window.dadosChuvaCache.frentes = {};
+                const newData = docSnap.data();
+                if(stableStringify(window.dadosChuvaCache) !== stableStringify(newData)) {
+                    window.dadosChuvaCache = newData;
+                    if(!window.dadosChuvaCache.frentes) window.dadosChuvaCache.frentes = {};
+                    init = true;
+                    if(window.sincronizarComLogistica) window.sincronizarComLogistica();
+                }
             }
-            init = true;
-            if(window.sincronizarComLogistica) window.sincronizarComLogistica();
         });
 
         window.salvarNoFirebase = function(dadosChuva) {
-            setDoc(docRefChuva, dadosChuva, { merge: true }).catch(console.error);
+            if(window.dadosChuvaCache !== undefined) window.dadosChuvaCache = JSON.parse(JSON.stringify(dadosChuva));
+            setDoc(docRefChuva, dadosChuva, { merge: true }).catch(err => console.error("Erro ao salvar:", err));
         };
     </script>
 </body>

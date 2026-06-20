@@ -253,6 +253,7 @@ window.salvarDados = function() {
                 dados.inputs[el.id] = el.value;
             }
         });
+        if(window.cacheData !== undefined) window.cacheData = JSON.parse(JSON.stringify(dados));
         setDoc(docRef, dados, { merge: true }).catch(e => console.error(e));
         
         // COMPARTILHAMENTO COM LOCALIZACAO_FRENTES
@@ -262,10 +263,23 @@ window.salvarDados = function() {
     }, 1000);
 }
 
+window.cacheData = null;
+
+function stableStringify(obj) {
+    if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);
+    if (Array.isArray(obj)) return '[' + obj.map(stableStringify).join(',') + ']';
+    const keys = Object.keys(obj).sort();
+    const res = [];
+    for (let k of keys) res.push(JSON.stringify(k) + ':' + stableStringify(obj[k]));
+    return '{' + res.join(',') + '}';
+}
+
 function carregarDados() {
     onSnapshot(docRef, (docSnap) => {
         if (!docSnap.exists() || bloqueioSalvamento) return;
         const dados = docSnap.data();
+        if(stableStringify(window.cacheData) === stableStringify(dados)) return;
+        window.cacheData = dados;
         if(dados.inputs) {
             for (const [id, valor] of Object.entries(dados.inputs)) {
                 const el = document.getElementById(id);

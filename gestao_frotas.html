@@ -404,11 +404,23 @@
         // Debounce para não sobrecarregar o Firebase
         clearTimeout(window.timeoutId);
         window.timeoutId = setTimeout(() => {
+            if(window.cacheData !== undefined) window.cacheData = JSON.parse(JSON.stringify(dados));
             setDoc(docRef, dados, { merge: true }).catch(console.error);
         }, 1000);
     }
 
     // --- CARREGAR DADOS ---
+    window.cacheData = null;
+
+    function stableStringify(obj) {
+        if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);
+        if (Array.isArray(obj)) return '[' + obj.map(stableStringify).join(',') + ']';
+        const keys = Object.keys(obj).sort();
+        const res = [];
+        for (let k of keys) res.push(JSON.stringify(k) + ':' + stableStringify(obj[k]));
+        return '{' + res.join(',') + '}';
+    }
+
     function carregarDadosSalvos() {
         onSnapshot(docRef, (docSnap) => {
             if (!docSnap.exists()) { 
@@ -421,6 +433,8 @@
             }
 
             const d = docSnap.data();
+            if(stableStringify(window.cacheData) === stableStringify(d)) return;
+            window.cacheData = d;
             
             document.querySelector('#tableA tbody').innerHTML = '';
             document.querySelector('#tableB tbody').innerHTML = '';

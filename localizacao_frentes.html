@@ -350,6 +350,7 @@ updateSemaforoUI(); render();
         const sharedRef = doc(db, "torre_logistica", "shared_data");
 
         window.salvarNoFirebase = function(estado) {
+            if(window.cacheData !== undefined) window.cacheData = JSON.parse(JSON.stringify(estado));
             setDoc(docRef, estado, { merge: true }).catch(console.error);
         };
 
@@ -358,9 +359,22 @@ updateSemaforoUI(); render();
         };
 
         let carregamentoInicial = false;
+        window.cacheData = null;
+
+        function stableStringify(obj) {
+            if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);
+            if (Array.isArray(obj)) return '[' + obj.map(stableStringify).join(',') + ']';
+            const keys = Object.keys(obj).sort();
+            const res = [];
+            for (let k of keys) res.push(JSON.stringify(k) + ':' + stableStringify(obj[k]));
+            return '{' + res.join(',') + '}';
+        }
+
         onSnapshot(docRef, (docSnap) => {
             if(docSnap.exists()) {
                 const data = docSnap.data();
+                if(stableStringify(window.cacheData) === stableStringify(data)) return;
+                window.cacheData = data;
                 if (window.updateStateFromFirebase) window.updateStateFromFirebase(data);
             }
             carregamentoInicial = true;

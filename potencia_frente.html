@@ -226,8 +226,12 @@ const fmt1 = (n) => (n||0).toLocaleString('pt-BR', {minimumFractionDigits:1, max
 const fmtPct = (v) => (v==null || isNaN(v) || !isFinite(v) ? '—' : (v*100).toLocaleString('pt-BR',{minimumFractionDigits:0, maximumFractionDigits:0}) + '%');
 
 window.toggleRows = function(mode) {
+  const isHidden = localStorage.getItem(`usa_hide_rows_${mode}`) === 'true';
+  const setHidden = !isHidden;
+  localStorage.setItem(`usa_hide_rows_${mode}`, setHidden);
+  
   document.querySelectorAll(`tr[data-mode-row="${mode}"]`).forEach(row => {
-    row.style.display = (row.style.display === 'none') ? '' : 'none';
+    row.style.display = setHidden ? 'none' : '';
   });
 }
 
@@ -528,6 +532,14 @@ function init() {
           }, 100);
       }
   }
+  // Aplica o estado dos toggles de exibição
+  ['P', 'R'].forEach(mode => {
+    if(localStorage.getItem(`usa_hide_rows_${mode}`) === 'true') {
+      document.querySelectorAll(`tr[data-mode-row="${mode}"]`).forEach(row => {
+        row.style.display = 'none';
+      });
+    }
+  });
 }
 init();
 </script>
@@ -553,25 +565,42 @@ init();
         let cacheState = null;
         let cacheMeta = null;
 
+        function stableStringify(obj) {
+            if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);
+            if (Array.isArray(obj)) return '[' + obj.map(stableStringify).join(',') + ']';
+            const keys = Object.keys(obj).sort();
+            const res = [];
+            for (let k of keys) res.push(JSON.stringify(k) + ':' + stableStringify(obj[k]));
+            return '{' + res.join(',') + '}';
+        }
+
         onSnapshot(docRefState, (docSnap) => {
             if(docSnap.exists()) {
-                cacheState = docSnap.data();
-                if(window.atualizarDoFirebase) window.atualizarDoFirebase(cacheState, null);
+                const newData = docSnap.data();
+                if(stableStringify(cacheState) !== stableStringify(newData)) {
+                    cacheState = newData;
+                    if(window.atualizarDoFirebase) window.atualizarDoFirebase(cacheState, null);
+                }
             }
         });
 
         onSnapshot(docRefMeta, (docSnap) => {
             if(docSnap.exists()) {
-                cacheMeta = docSnap.data();
-                if(window.atualizarDoFirebase) window.atualizarDoFirebase(null, cacheMeta);
+                const newData = docSnap.data();
+                if(stableStringify(cacheMeta) !== stableStringify(newData)) {
+                    cacheMeta = newData;
+                    if(window.atualizarDoFirebase) window.atualizarDoFirebase(null, cacheMeta);
+                }
             }
         });
 
         window.salvarEstadoFirebase = function(estado) {
+            cacheState = JSON.parse(JSON.stringify(estado));
             setDoc(docRefState, estado, { merge: true }).catch(console.error);
         };
 
         window.salvarMetaFirebase = function(metadata) {
+            cacheMeta = JSON.parse(JSON.stringify(metadata));
             setDoc(docRefMeta, metadata, { merge: true }).catch(console.error);
         };
 

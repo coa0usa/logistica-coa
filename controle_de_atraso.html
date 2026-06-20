@@ -903,13 +903,28 @@
         const docRef = doc(dbFirestore, "torre_logistica", "controle_atraso");
 
         window.salvarNoFirebase = function(dbData, benchData, lastUpdate) {
-            setDoc(docRef, { db: dbData, bench: benchData, update: lastUpdate }).catch(console.error);
+            const dataToSave = { db: dbData, bench: benchData, update: lastUpdate };
+            if(window.cacheData !== undefined) window.cacheData = JSON.parse(JSON.stringify(dataToSave));
+            setDoc(docRef, dataToSave).catch(console.error);
         };
+
+        window.cacheData = null;
+
+        function stableStringify(obj) {
+            if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);
+            if (Array.isArray(obj)) return '[' + obj.map(stableStringify).join(',') + ']';
+            const keys = Object.keys(obj).sort();
+            const res = [];
+            for (let k of keys) res.push(JSON.stringify(k) + ':' + stableStringify(obj[k]));
+            return '{' + res.join(',') + '}';
+        }
 
         window.carregarDoFirebase = function() {
             onSnapshot(docRef, (docSnap) => {
                 if(docSnap.exists()) {
                     const data = docSnap.data();
+                    if(stableStringify(window.cacheData) === stableStringify(data)) return;
+                    window.cacheData = data;
                     if(window.updateStateFromFirebase) {
                         window.updateStateFromFirebase(data.db, data.bench, data.update);
                     }

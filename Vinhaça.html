@@ -301,10 +301,24 @@
         }
 
         // Carregar do Firebase em tempo real
+        let cacheData = null;
+
+        function stableStringify(obj) {
+            if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);
+            if (Array.isArray(obj)) return '[' + obj.map(stableStringify).join(',') + ']';
+            const keys = Object.keys(obj).sort();
+            const res = [];
+            for (let k of keys) res.push(JSON.stringify(k) + ':' + stableStringify(obj[k]));
+            return '{' + res.join(',') + '}';
+        }
+
         function loadData() {
             onSnapshot(docRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
+                    if(stableStringify(cacheData) === stableStringify(data)) return;
+                    cacheData = data;
+                    
                     fields.forEach(id => {
                         if(data[id] !== undefined) {
                             const el = document.getElementById(id);
