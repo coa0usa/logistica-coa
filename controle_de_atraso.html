@@ -383,42 +383,41 @@
 
     document.getElementById('input-excel').addEventListener('change', handleUpload);
 
+    window.updateStateFromFirebase = function(newDb, newBench, updateStr) {
+        db = newDb || [];
+        benchmarksFazenda = newBench || {};
+        if(updateStr) document.getElementById('last-update').innerText = 'Última atualização: ' + updateStr;
+        
+        if(db.length > 0) {
+            populateFilter('filter-horario', 'horario');
+            populateFilter('filter-fazenda', 'fazenda');
+            populateFilter('search-frente', 'frente');
+            document.getElementById('empty-state').style.display = 'none';
+            document.getElementById('main-content').style.display = 'grid';
+            applyFilters();
+        } else {
+            document.getElementById('empty-state').style.display = 'block';
+            document.getElementById('main-content').style.display = 'none';
+        }
+    };
+
     function saveToLocalStorage() {
         const now = new Date().toLocaleString('pt-BR');
-        localStorage.setItem('logicontrol_db', JSON.stringify(db));
-        localStorage.setItem('logicontrol_bench', JSON.stringify(benchmarksFazenda));
-        localStorage.setItem('logicontrol_last_update', now);
+        if (window.salvarNoFirebase) {
+            window.salvarNoFirebase(db, benchmarksFazenda, now);
+        }
         document.getElementById('last-update').innerText = 'Última atualização: ' + now;
     }
 
     function loadFromLocalStorage() {
-        const savedDb = localStorage.getItem('logicontrol_db');
-        const savedBench = localStorage.getItem('logicontrol_bench');
-        const savedUpdate = localStorage.getItem('logicontrol_last_update');
-        
-        if (savedDb && savedBench) {
-            db = JSON.parse(savedDb);
-            benchmarksFazenda = JSON.parse(savedBench);
-
-            populateFilter('filter-horario', 'horario');
-            populateFilter('filter-fazenda', 'fazenda');
-            populateFilter('search-frente', 'frente');
-
-            if(savedUpdate) document.getElementById('last-update').innerText = 'Última atualização: ' + savedUpdate;
-
-            document.getElementById('empty-state').style.display = 'none';
-            document.getElementById('main-content').style.display = 'grid';
-            
-            applyFilters();
+        if (window.carregarDoFirebase) {
+            window.carregarDoFirebase();
         }
     }
 
     function clearAllData() {
         if (confirm("Deseja apagar todos os dados do relatório?")) {
-            localStorage.removeItem('logicontrol_db');
-            localStorage.removeItem('logicontrol_bench');
-            localStorage.removeItem('logicontrol_last_update');
-            location.reload();
+            if (window.apagarDoFirebase) window.apagarDoFirebase();
         }
     }
 
@@ -886,9 +885,10 @@
     }
 </script>
 
-    <!-- Firebase App (the core Firebase SDK) is always required and must be listed first -->
+    <!-- Firebase SDK e Lógica de Persistência -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCnBug9V28EZG1NNzYjqShsYesjgewroPo",
@@ -898,8 +898,35 @@
             messagingSenderId: "655932765006",
             appId: "1:655932765006:web:f2e239fb0a1b2f5867241f"
         };
-
         const app = initializeApp(firebaseConfig);
+        const dbFirestore = getFirestore(app);
+        const docRef = doc(dbFirestore, "torre_logistica", "controle_atraso");
+
+        window.salvarNoFirebase = function(dbData, benchData, lastUpdate) {
+            setDoc(docRef, { db: dbData, bench: benchData, update: lastUpdate }).catch(console.error);
+        };
+
+        window.carregarDoFirebase = function() {
+            onSnapshot(docRef, (docSnap) => {
+                if(docSnap.exists()) {
+                    const data = docSnap.data();
+                    if(window.updateStateFromFirebase) {
+                        window.updateStateFromFirebase(data.db, data.bench, data.update);
+                    }
+                }
+            });
+        };
+
+        window.apagarDoFirebase = function() {
+            deleteDoc(docRef).then(() => location.reload());
+        };
+
+        // Acionar a leitura inicial
+        if(document.readyState === 'complete') {
+            window.carregarDoFirebase();
+        } else {
+            window.addEventListener('load', window.carregarDoFirebase);
+        }
     </script>
 </body>
 </html>

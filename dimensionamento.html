@@ -522,7 +522,20 @@
     </div>
   </div>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyCnBug9V28EZG1NNzYjqShsYesjgewroPo",
+    authDomain: "torre-ctt-usa.firebaseapp.com",
+    projectId: "torre-ctt-usa",
+    storageBucket: "torre-ctt-usa.firebasestorage.app",
+    messagingSenderId: "655932765006",
+    appId: "1:655932765006:web:f2e239fb0a1b2f5867241f"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 /* ----------------- Utilitários ----------------- */
 function toNum(v){
   if(v===undefined || v===null) return NaN;
@@ -553,32 +566,39 @@ function getVal(key, col){
   const el = getEl(key, col); if(!el) return NaN; return toNum(el.value);
 }
 
-/* ====== Salvamento automático (LocalStorage) ====== */
-const LS_KEY = 'dimens_caminhoes_v3';
-
+/* ====== Salvamento automático (Firestore) ====== */
+let timeoutId;
 function saveAll() {
-  const data = {};
-  document.querySelectorAll('.cell').forEach(el => {
-    const k = el.getAttribute('data-key') || el.id || '';
-    const c = el.getAttribute('data-col') || '_';
-    const id = `${k}:${c}`;
-    data[id] = el.value;
-  });
-  localStorage.setItem(LS_KEY, JSON.stringify(data));
+  clearTimeout(timeoutId);
+  timeoutId = setTimeout(() => {
+      const data = {};
+      document.querySelectorAll('.cell').forEach(el => {
+        const k = el.getAttribute('data-key') || el.id || '';
+        const c = el.getAttribute('data-col') || '_';
+        const id = `${k}:${c}`;
+        data[id] = el.value;
+      });
+      setDoc(doc(db, "torre_logistica", "dimensionamento"), data, { merge: true }).catch(console.error);
+  }, 1000);
 }
+
 function loadAll() {
-  const raw = localStorage.getItem(LS_KEY);
-  if(!raw) return;
-  let data=null; try { data = JSON.parse(raw); } catch(e){ return; }
-  Object.entries(data).forEach(([id, val]) => {
-    const [k, c] = id.split(':');
-    let sel;
-    if(c === '_'){
-      sel = document.querySelector(`.cell[data-key="${k}"], .cell#${k}`);
-    }else{
-      sel = document.querySelector(`.cell[data-key="${k}"][data-col="${c}"]`);
-    }
-    if(sel != null) sel.value = val;
+  onSnapshot(doc(db, "torre_logistica", "dimensionamento"), (docSnap) => {
+      if(!docSnap.exists()) return;
+      const data = docSnap.data();
+      Object.entries(data).forEach(([id, val]) => {
+        const [k, c] = id.split(':');
+        let sel;
+        if(c === '_'){
+          sel = document.querySelector(`.cell[data-key="${k}"], .cell#${k}`);
+        }else{
+          sel = document.querySelector(`.cell[data-key="${k}"][data-col="${c}"]`);
+        }
+        if(sel != null && sel.value !== val) {
+            sel.value = val;
+        }
+      });
+      recalc();
   });
 }
 
@@ -799,27 +819,25 @@ document.addEventListener('input', (e)=>{
 });
 
 /* Inicialização */
-document.addEventListener('DOMContentLoaded', ()=>{
-  loadAll();                 // carrega dados salvos
-  // Aplica mapeamento de composição já na carga (R/T/P -> reboques/dens)
-  COLS.forEach(c=> applyCompForCol(c));
+loadAll();                 // carrega dados salvos do Firestore (já aciona recalc)
+COLS.forEach(c=> applyCompForCol(c));
 
-  // Listener: sempre que trocar composição, aplica mapeamento
-  document.querySelectorAll('[data-key="comp"]').forEach(sel=>{
-    sel.addEventListener('change', (e)=>{
-      const col = e.target.getAttribute('data-col');
-      applyCompForCol(col);
-      saveAll();
-      recalc();
-    });
+// Listener: sempre que trocar composição, aplica mapeamento
+document.querySelectorAll('[data-key="comp"]').forEach(sel=>{
+  sel.addEventListener('change', (e)=>{
+    const col = e.target.getAttribute('data-col');
+    applyCompForCol(col);
+    saveAll();
+    recalc();
   });
+});
 
-  // Botão: Exportar CSV
-  document.getElementById('btn-export').addEventListener('click', ()=>{
-    const campos = [
-      { rot:'Nº Colhedora Efetiva', key:'colhedoras', inpt:true },
-      { rot:'Cota Diária (t/dia)', key:'cotaDia', inpt:true },
-      { rot:'Produtividade Colhedora (t/dia)', calc: (c)=>document.querySelector(`[data-formula="prodColhCalc"][data-col="${c}"]`)?.textContent },
+// Botão: Exportar CSV
+document.getElementById('btn-export').addEventListener('click', ()=>{
+  const campos = [
+    { rot:'Nº Colhedora Efetiva', key:'colhedoras', inpt:true },
+    { rot:'Cota Diária (t/dia)', key:'cotaDia', inpt:true },
+    { rot:'Produtividade Colhedora (t/dia)', calc: (c)=>document.querySelector(`[data-formula="prodColhCalc"][data-col="${c}"]`)?.textContent },
       { rot:'Cota Horária (t/h)', calc:(c)=>document.querySelector(`[data-formula="cotaHora24"][data-col="${c}"]`)?.textContent },
       { rot:'Fazenda', key:'fazenda', inpt:true },
       { rot:'Raio (km)', key:'raio', inpt:true },
@@ -908,7 +926,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   // Primeiro cálculo
   recalc();
-});
+
 </script>
 </body>
 </html>

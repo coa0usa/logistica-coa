@@ -193,15 +193,39 @@ let FRENTES = meta.FRENTES;
 let COMPOSICOES = meta.COMPOSICOES;
 let MAP = meta.MAP;
 
-function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-function persistMeta() { localStorage.setItem(META_KEY, JSON.stringify({ FRENTES, COMPOSICOES, MAP })); }
+let saveTimeout;
+function save() { 
+  if(window.salvarEstadoFirebase) {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => window.salvarEstadoFirebase(state), 1000);
+  }
+}
+
+let metaTimeout;
+function persistMeta() { 
+  if(window.salvarMetaFirebase) {
+    clearTimeout(metaTimeout);
+    metaTimeout = setTimeout(() => window.salvarMetaFirebase({ FRENTES, COMPOSICOES, MAP }), 1000);
+  }
+}
+
+window.atualizarDoFirebase = function(novoState, novoMeta) {
+    if(novoState) state = novoState;
+    if(novoMeta) {
+        meta = novoMeta;
+        FRENTES = meta.FRENTES || [];
+        COMPOSICOES = meta.COMPOSICOES || [];
+        MAP = meta.MAP || {};
+    }
+    init();
+};
 
 const toNum = v => { const n = parseFloat(String(v).replace(',','.').replace(/[^0-9.]/g, '')); return isFinite(n) ? n : 0; };
 const fmt0 = (n) => (n||0).toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0});
 const fmt1 = (n) => (n||0).toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:1});
 const fmtPct = (v) => (v==null || isNaN(v) || !isFinite(v) ? '—' : (v*100).toLocaleString('pt-BR',{minimumFractionDigits:0, maximumFractionDigits:0}) + '%');
 
-function toggleRows(mode) {
+window.toggleRows = function(mode) {
   document.querySelectorAll(`tr[data-mode-row="${mode}"]`).forEach(row => {
     row.style.display = (row.style.display === 'none') ? '' : 'none';
   });
@@ -418,49 +442,49 @@ function recalcAll() {
 }
 
 // Funções de Modal e Manutenção
-function openFrentesModal(){
+window.openFrentesModal = function(){
   const sel = document.getElementById('rem-frente'); sel.innerHTML = '<option value="">Selecione...</option>';
   FRENTES.forEach(f => { const op = document.createElement('option'); op.value = f; op.textContent = f; sel.appendChild(op); });
   document.getElementById('modal-frentes').style.display = 'flex';
 }
-function closeFrentesModal(){ document.getElementById('modal-frentes').style.display = 'none'; }
-function addFrente(){
+window.closeFrentesModal = function(){ document.getElementById('modal-frentes').style.display = 'none'; }
+window.addFrente = function(){
   const n = document.getElementById('nova-frente').value.trim().toUpperCase();
   if(!n || FRENTES.includes(n)) return;
   FRENTES.push(n); MAP[n] = ['RODO TREM', 'TREMINHÃO'];
-  persistMeta(); init(); closeFrentesModal();
+  persistMeta(); init(); window.closeFrentesModal();
 }
-function removeFrente(){
+window.removeFrente = function(){
   const n = document.getElementById('rem-frente').value;
   if(!n || !confirm(`Remover ${n}?`)) return;
   FRENTES = FRENTES.filter(f => f !== n); delete MAP[n];
-  persistMeta(); init(); closeFrentesModal();
+  persistMeta(); init(); window.closeFrentesModal();
 }
-function openCompsModal(){
+window.openCompsModal = function(){
   const selF = document.getElementById('comp-frente-target'); selF.innerHTML = '';
   FRENTES.forEach(f => { const op = document.createElement('option'); op.value = f; op.textContent = f; selF.appendChild(op); });
   const selR = document.getElementById('rem-comp'); selR.innerHTML = '<option value="">Selecione...</option>';
   COMPOSICOES.forEach(c => { const op = document.createElement('option'); op.value = c.nome; op.textContent = c.nome; selR.appendChild(op); });
   document.getElementById('modal-comps').style.display = 'flex';
 }
-function closeCompsModal(){ document.getElementById('modal-comps').style.display = 'none'; }
-function addComposicao(){
+window.closeCompsModal = function(){ document.getElementById('modal-comps').style.display = 'none'; }
+window.addComposicao = function(){
   const f = document.getElementById('comp-frente-target').value;
   const n = document.getElementById('comp-nome').value.trim().toUpperCase();
   const c = parseInt(document.getElementById('comp-cap').value);
   if(!f || !n || isNaN(c)) return;
   if(!COMPOSICOES.find(x => x.nome === n)) COMPOSICOES.push({nome:n, cap:c});
   if(!MAP[f].includes(n)) MAP[f].push(n);
-  persistMeta(); init(); closeCompsModal();
+  persistMeta(); init(); window.closeCompsModal();
 }
-function removeComposicao(){
+window.removeComposicao = function(){
   const n = document.getElementById('rem-comp').value;
   if(!n || !confirm(`Remover ${n}?`)) return;
   COMPOSICOES = COMPOSICOES.filter(c => c.nome !== n);
   Object.keys(MAP).forEach(f => { MAP[f] = MAP[f].filter(x => x !== n); });
-  persistMeta(); init(); closeCompsModal();
+  persistMeta(); init(); window.closeCompsModal();
 }
-function zerarDia(){ if(confirm("Apagar todos os lançamentos?")) { state = {}; localStorage.removeItem(LAST_FOCUS_KEY); save(); init(); } }
+window.zerarDia = function(){ if(confirm("Apagar todos os lançamentos?")) { if(window.apagarDoFirebase) window.apagarDoFirebase(); } }
 
 // Lógica de Eventos e Foco
 document.addEventListener('input', e => {
@@ -510,6 +534,7 @@ init();
     <!-- Firebase App (the core Firebase SDK) is always required and must be listed first -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCnBug9V28EZG1NNzYjqShsYesjgewroPo",
@@ -519,8 +544,43 @@ init();
             messagingSenderId: "655932765006",
             appId: "1:655932765006:web:f2e239fb0a1b2f5867241f"
         };
-
         const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        const docRefState = doc(db, "torre_logistica", "potencia_frente_state");
+        const docRefMeta = doc(db, "torre_logistica", "potencia_frente_meta");
+
+        let cacheState = null;
+        let cacheMeta = null;
+
+        onSnapshot(docRefState, (docSnap) => {
+            if(docSnap.exists()) {
+                cacheState = docSnap.data();
+                if(window.atualizarDoFirebase) window.atualizarDoFirebase(cacheState, null);
+            }
+        });
+
+        onSnapshot(docRefMeta, (docSnap) => {
+            if(docSnap.exists()) {
+                cacheMeta = docSnap.data();
+                if(window.atualizarDoFirebase) window.atualizarDoFirebase(null, cacheMeta);
+            }
+        });
+
+        window.salvarEstadoFirebase = function(estado) {
+            setDoc(docRefState, estado, { merge: true }).catch(console.error);
+        };
+
+        window.salvarMetaFirebase = function(metadata) {
+            setDoc(docRefMeta, metadata, { merge: true }).catch(console.error);
+        };
+
+        window.apagarDoFirebase = function() {
+            deleteDoc(docRefState).then(() => {
+                localStorage.removeItem('usa_last_focus_id');
+                location.reload();
+            });
+        };
     </script>
 </body>
 </html>

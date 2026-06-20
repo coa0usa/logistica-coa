@@ -255,49 +255,12 @@
         }
         setInterval(updateClock, 1000);
         updateClock();
-
-        // --- LÓGICA DE PERSISTÊNCIA (SALVAR DADOS) ---
-
-        const fields = [
-            'input-booster', 
-            'input-2j', 
-            'input-setor1', 
-            'input-agua', 
-            'select-sugar', 
-            'obs-text'
-        ];
-
-        // Função para salvar no LocalStorage
-        function saveData() {
-            fields.forEach(id => {
-                const element = document.getElementById(id);
-                localStorage.setItem(id, element.value);
-            });
-        }
-
-        // Função para carregar do LocalStorage
-        function loadData() {
-            fields.forEach(id => {
-                const savedValue = localStorage.getItem(id);
-                if (savedValue !== null) {
-                    document.getElementById(id).value = savedValue;
-                }
-            });
-        }
-
-        // Adiciona evento de "escuta" em todos os campos para salvar ao mudar algo
-        fields.forEach(id => {
-            document.getElementById(id).addEventListener('input', saveData);
-        });
-
-        // Carrega os dados assim que a página abre
-        window.onload = loadData;
-
     </script>
 
-    <!-- Firebase App (the core Firebase SDK) is always required and must be listed first -->
+    <!-- Firebase SDK e Lógica de Persistência -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCnBug9V28EZG1NNzYjqShsYesjgewroPo",
@@ -309,6 +272,63 @@
         };
 
         const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // --- LÓGICA DE PERSISTÊNCIA (FIREBASE) ---
+        const fields = [
+            'input-booster', 
+            'input-2j', 
+            'input-setor1', 
+            'input-agua', 
+            'select-sugar', 
+            'obs-text'
+        ];
+        
+        const docRef = doc(db, "torre_logistica", "vinhaca_data");
+        let timeoutId;
+
+        // Salvar com Debounce para não estourar limite do Firebase
+        function saveData() {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+                const data = {};
+                fields.forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) data[id] = el.value;
+                });
+                setDoc(docRef, data, { merge: true }).catch(err => console.error("Erro ao salvar:", err));
+            }, 1000);
+        }
+
+        // Carregar do Firebase em tempo real
+        function loadData() {
+            onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    fields.forEach(id => {
+                        if(data[id] !== undefined) {
+                            const el = document.getElementById(id);
+                            // Atualiza apenas se o valor for diferente para não atrapalhar quem está digitando
+                            if(el && el.value !== data[id]) {
+                                el.value = data[id];
+                            }
+                        }
+                    });
+                }
+            });
+        }
+
+        // Adiciona evento de "escuta" em todos os campos para salvar ao mudar algo
+        fields.forEach(id => {
+            const el = document.getElementById(id);
+            if(el) {
+                el.addEventListener('input', saveData);
+                el.addEventListener('change', saveData);
+            }
+        });
+
+        // Carrega os dados assim que a página abre
+        loadData();
     </script>
 </body>
 </html>

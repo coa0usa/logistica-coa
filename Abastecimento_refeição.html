@@ -164,7 +164,7 @@
     const LINHAS = 30;
 
     // Mascara ajustada para permitir digitação fluida sem "0,00" inicial
-    function mascaraKM(input) {
+    window.mascaraKM = function(input) {
         let v = input.value.replace(/\D/g, '');
         if (v === "") {
             input.value = "";
@@ -180,27 +180,27 @@
         }
     }
 
-    function parseKM(valor) {
+    window.parseKM = function(valor) {
         if (!valor || valor === "") return null;
         let limpo = valor.toString().replace(/\./g, '').replace(',', '.');
         let num = parseFloat(limpo);
         return isNaN(num) ? null : num;
     }
 
-    function formatarNumeroBrasil(num) {
+    window.formatarNumeroBrasil = function(num) {
         return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    function toggleModal() {
+    window.toggleModal = function() {
         const m = document.getElementById('modal-cadastro');
         const isOpening = m.style.display !== 'flex';
         m.style.display = isOpening ? 'flex' : 'none';
-        if(isOpening) carregarCadastro();
+        if(isOpening) window.carregarCadastro();
     }
 
-    function buscarUltimoKMAntesDeHoje(frota) {
+    window.buscarUltimoKMAntesDeHoje = function(frota) {
         const dataHoje = document.getElementById('data-controle').value;
-        const historico = JSON.parse(localStorage.getItem('usa_v4_dados') || '{}');
+        const historico = window.cacheDados || {};
         const datas = Object.keys(historico).sort().reverse();
         
         for (let d of datas) {
@@ -209,7 +209,7 @@
                 if (registro) {
                     let kms = [registro.c_ini, registro.b_ini, registro.a_ini];
                     for (let val of kms) {
-                        let n = parseKM(val);
+                        let n = window.parseKM(val);
                         if (n !== null) return n;
                     }
                 }
@@ -218,26 +218,26 @@
         return null;
     }
 
-    function salvarCadastro() {
+    window.salvarCadastro = function() {
         let cadastro = {};
         document.querySelectorAll('#tbody-cadastro tr').forEach(row => {
             const inputs = row.querySelectorAll('input');
             const frota = inputs[0].value.trim();
             if(frota) {
                 cadastro[frota] = { 
-                    tanque: parseKM(inputs[1].value) || 0, 
+                    tanque: window.parseKM(inputs[1].value) || 0, 
                     kml: parseFloat(inputs[2].value.replace(',', '.')) || 1.0,
-                    kmBase: parseKM(inputs[3].value)
+                    kmBase: window.parseKM(inputs[3].value)
                 };
             }
         });
-        localStorage.setItem('usa_v4_cadastro', JSON.stringify(cadastro));
-        toggleModal();
-        carregarDia();
+        if(window.salvarCadastroFirebase) window.salvarCadastroFirebase(cadastro);
+        window.toggleModal();
+        window.carregarDia();
     }
 
-    function carregarCadastro() {
-        const dados = JSON.parse(localStorage.getItem('usa_v4_cadastro') || '{}');
+    window.carregarCadastro = function() {
+        const dados = window.cacheCadastro || {};
         const tbody = document.getElementById('tbody-cadastro');
         tbody.innerHTML = "";
         const frotasCadastradas = Object.keys(dados);
@@ -248,18 +248,18 @@
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><input type="text" value="${frota}"></td>
-                <td><input type="text" oninput="mascaraKM(this)" value="${info.tanque ? formatarNumeroBrasil(info.tanque) : ""}"></td>
+                <td><input type="text" oninput="mascaraKM(this)" value="${info.tanque ? window.formatarNumeroBrasil(info.tanque) : ""}"></td>
                 <td><input type="text" value="${info.kml ? info.kml.toString().replace('.', ',') : ""}"></td>
-                <td><input type="text" class="input-base" oninput="mascaraKM(this)" value="${info.kmBase ? formatarNumeroBrasil(info.kmBase) : ""}"></td>
+                <td><input type="text" class="input-base" oninput="mascaraKM(this)" value="${info.kmBase ? window.formatarNumeroBrasil(info.kmBase) : ""}"></td>
             `;
             tbody.appendChild(tr);
         }
     }
 
-    function carregarDia() {
+    window.carregarDia = function() {
         const data = document.getElementById('data-controle').value;
-        const historico = JSON.parse(localStorage.getItem('usa_v4_dados') || '{}');
-        const cadastro = JSON.parse(localStorage.getItem('usa_v4_cadastro') || '{}');
+        const historico = window.cacheDados || {};
+        const cadastro = window.cacheCadastro || {};
         let lista = historico[data];
 
         if (!lista || lista.length === 0) {
@@ -292,13 +292,14 @@
                 inputs[3].value = item[`${t}_ref`] || "";
             });
         });
-        atualizarUI();
+        window.atualizarUI();
     }
 
-    function salvar() {
+    let saveTimeout;
+    window.salvar = function() {
         const dataSel = document.getElementById('data-controle').value;
         if(!dataSel) return;
-        const historico = JSON.parse(localStorage.getItem('usa_v4_dados') || '{}');
+        const historico = window.cacheDados || {};
         let lista = [];
         const frotas = document.querySelectorAll('#tbody-frota input.frota-input');
         frotas.forEach((input, i) => {
@@ -315,13 +316,18 @@
             }
         });
         historico[dataSel] = lista;
-        localStorage.setItem('usa_v4_dados', JSON.stringify(historico));
-        atualizarUI();
+        
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(() => {
+            if(window.salvarDadosFirebase) window.salvarDadosFirebase(historico);
+        }, 1000);
+        
+        window.atualizarUI();
     }
 
-    function atualizarUI() {
+    window.atualizarUI = function() {
         const frotas = document.querySelectorAll('#tbody-frota input.frota-input');
-        const cadastro = JSON.parse(localStorage.getItem('usa_v4_cadastro') || '{}');
+        const cadastro = window.cacheCadastro || {};
         let counts = { a_aba:0, a_ref:0, b_aba:0, b_ref:0, c_aba:0, c_ref:0 };
 
         frotas.forEach((inputF, i) => {
@@ -329,11 +335,11 @@
             if (frotaNum === "") return;
 
             const config = cadastro[frotaNum] || { tanque: 0, kml: 1, kmBase: null };
-            const kmBaseDinamico = config.kmBase || buscarUltimoKMAntesDeHoje(frotaNum);
+            const kmBaseDinamico = config.kmBase || window.buscarUltimoKMAntesDeHoje(frotaNum);
 
-            const kmA = parseKM(document.querySelectorAll('#tbody-a tr')[i].querySelectorAll('input')[0].value);
-            const kmB = parseKM(document.querySelectorAll('#tbody-b tr')[i].querySelectorAll('input')[0].value);
-            const kmC = parseKM(document.querySelectorAll('#tbody-c tr')[i].querySelectorAll('input')[0].value);
+            const kmA = window.parseKM(document.querySelectorAll('#tbody-a tr')[i].querySelectorAll('input')[0].value);
+            const kmB = window.parseKM(document.querySelectorAll('#tbody-b tr')[i].querySelectorAll('input')[0].value);
+            const kmC = window.parseKM(document.querySelectorAll('#tbody-c tr')[i].querySelectorAll('input')[0].value);
 
             const turnosConfig = [
                 { t: 'a', atual: kmA, ref: kmBaseDinamico }, 
@@ -375,7 +381,7 @@
         });
     }
 
-    function inicializar() {
+    window.inicializar = function() {
         if(!document.getElementById('data-controle').value) {
             document.getElementById('data-controle').value = new Date().toISOString().split('T')[0];
         }
@@ -395,14 +401,15 @@
                 corpo.appendChild(tr);
             }
         });
-        carregarDia();
-        setInterval(atualizarUI, 5000);
+        window.carregarDia();
+        setInterval(window.atualizarUI, 5000);
     }
-    window.onload = inicializar;
+    window.onload = window.inicializar;
 </script>
     <!-- Firebase App (the core Firebase SDK) is always required and must be listed first -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCnBug9V28EZG1NNzYjqShsYesjgewroPo",
@@ -412,8 +419,32 @@
             messagingSenderId: "655932765006",
             appId: "1:655932765006:web:f2e239fb0a1b2f5867241f"
         };
-
         const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const docRefDados = doc(db, "torre_logistica", "abastecimento_dados");
+        const docRefCadastro = doc(db, "torre_logistica", "abastecimento_cadastro");
+
+        window.cacheDados = {};
+        window.cacheCadastro = {};
+
+        onSnapshot(docRefDados, (docSnap) => {
+            if(docSnap.exists()) window.cacheDados = docSnap.data();
+            if(window.carregarDia) window.carregarDia();
+        });
+
+        onSnapshot(docRefCadastro, (docSnap) => {
+            if(docSnap.exists()) window.cacheCadastro = docSnap.data();
+            if(window.carregarDia) window.carregarDia();
+        });
+
+        window.salvarDadosFirebase = function(dados) {
+            setDoc(docRefDados, dados, { merge: true }).catch(console.error);
+        };
+        
+        window.salvarCadastroFirebase = function(cadastro) {
+            setDoc(docRefCadastro, cadastro, { merge: true }).catch(console.error);
+        };
     </script>
 </body>
 </html>

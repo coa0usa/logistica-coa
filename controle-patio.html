@@ -222,67 +222,84 @@ document.write(`
 </div>
 </div>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, setDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyCnBug9V28EZG1NNzYjqShsYesjgewroPo",
+    authDomain: "torre-ctt-usa.firebaseapp.com",
+    projectId: "torre-ctt-usa",
+    storageBucket: "torre-ctt-usa.firebasestorage.app",
+    messagingSenderId: "655932765006",
+    appId: "1:655932765006:web:f2e239fb0a1b2f5867241f"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const docRef = doc(db, "torre_logistica", "controle_patio");
+const sharedRef = doc(db, "torre_logistica", "shared_data");
+
 let segundos=0, rodando=false, timer=null;
 let bloqueioSalvamento = false;
+let timeoutId;
 
-function salvarDados() {
+window.salvarDados = function() {
     if (bloqueioSalvamento) return;
-    
-    const dados = {
-        segundos: segundos,
-        rodando: rodando,
-        inputs: {}
-    };
-
-    document.querySelectorAll('input').forEach(el => {
-        if (el.id && !el.readOnly) {
-            dados.inputs[el.id] = el.value;
-        }
-    });
-
-    localStorage.setItem('dadosPatio_v1', JSON.stringify(dados));
-
-    // COMPARTILHAMENTO COM LOCALIZACAO_FRENTES
-    localStorage.setItem('shared_moagem', document.getElementById('moagem').value);
-    localStorage.setItem('shared_tcPatio', document.getElementById('tcPatio').value);
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => {
+        const dados = { segundos: segundos, rodando: rodando, inputs: {} };
+        document.querySelectorAll('input').forEach(el => {
+            if (el.id && !el.readOnly) {
+                dados.inputs[el.id] = el.value;
+            }
+        });
+        setDoc(docRef, dados, { merge: true }).catch(e => console.error(e));
+        
+        // COMPARTILHAMENTO COM LOCALIZACAO_FRENTES
+        const moagemVal = document.getElementById('moagem') ? document.getElementById('moagem').value : '';
+        const tcVal = document.getElementById('tcPatio') ? document.getElementById('tcPatio').value : '';
+        setDoc(sharedRef, { shared_moagem: moagemVal, shared_tcPatio: tcVal }, { merge: true });
+    }, 1000);
 }
 
 function carregarDados() {
-    const salvo = localStorage.getItem('dadosPatio_v1');
-    if (!salvo) return;
-
-    const dados = JSON.parse(salvo);
-    for (const [id, valor] of Object.entries(dados.inputs)) {
-        const el = document.getElementById(id);
-        if (el) el.value = valor;
-    }
-
-    segundos = dados.segundos || 0;
-    if (dados.rodando) {
-        rodando = false; 
-        toggleCrono();
-    } else {
-        atualizarDisplayCrono();
-    }
-
-    calcular();
-    checar8h();
+    onSnapshot(docRef, (docSnap) => {
+        if (!docSnap.exists() || bloqueioSalvamento) return;
+        const dados = docSnap.data();
+        if(dados.inputs) {
+            for (const [id, valor] of Object.entries(dados.inputs)) {
+                const el = document.getElementById(id);
+                if (el && el.value !== valor) el.value = valor;
+            }
+        }
+        
+        const oldRodando = rodando;
+        segundos = dados.segundos || 0;
+        
+        // Evita piscar o cronômetro se o estado for o mesmo
+        if(oldRodando !== dados.rodando) {
+            if (dados.rodando) {
+                if(!rodando) { rodando = false; window.toggleCrono(); }
+            } else {
+                if(rodando) { rodando = true; window.toggleCrono(); }
+            }
+        }
+        window.atualizarDisplayCrono();
+        window.calcular();
+        window.checar8h();
+    });
 }
 
-function limparTudo() {
+window.limparTudo = function() {
     if (confirm("ATENÇÃO: Isso apagará todos os dados preenchidos. Confirmar?")) {
         bloqueioSalvamento = true; 
-        localStorage.removeItem('dadosPatio_v1');
-        localStorage.removeItem('shared_moagem');
-        localStorage.removeItem('shared_tcPatio');
-        
+        deleteDoc(docRef);
         document.querySelectorAll('input').forEach(i => { if(!i.readOnly) i.value = ""; });
-        window.location.reload();
+        setTimeout(() => window.location.reload(), 500);
     }
 }
 
-function calcular(){
+window.calcular = function() {
   const densVal = +dens.value || 1;
   let sT=0, sC=0;
   for(let i=1;i<=3;i++){
@@ -296,14 +313,13 @@ function calcular(){
   }
   tcPatio.value = sT.toFixed(1);
   quantTotal.value = sC;
-  atualizarDisplayCrono();
-  // Força atualização dos dados compartilhados ao calcular (TC Pátio muda)
+  window.atualizarDisplayCrono();
   if(!bloqueioSalvamento) {
-      localStorage.setItem('shared_tcPatio', tcPatio.value);
+      setDoc(sharedRef, { shared_tcPatio: tcPatio.value }, { merge: true });
   }
 }
 
-function checar8h() {
+window.checar8h = function() {
   const agora = new Date();
   const minAtual = agora.getHours() * 60 + agora.getMinutes();
   document.querySelectorAll('.tabela-renovar tbody tr').forEach(linha => {
@@ -330,7 +346,7 @@ function checar8h() {
   });
 }
 
-function atualizarDisplayCrono() {
+window.atualizarDisplayCrono = function() {
     const h=Math.floor(segundos/3600), m=Math.floor((segundos%3600)/60), s=segundos%60;
     tempo.innerText=`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
     const pT = (+moagem.value||0)*(segundos/3600);
@@ -338,26 +354,32 @@ function atualizarDisplayCrono() {
     cmPerda.innerText = (pT/(+dens.value||1)).toFixed(2);
 }
 
-function toggleCrono(){
+window.toggleCrono = function() {
   if(!rodando){
     rodando=true; btnCrono.innerText="PARAR";
-    timer=setInterval(()=>{ segundos++; atualizarDisplayCrono(); },1000);
+    timer=setInterval(()=>{ segundos++; window.atualizarDisplayCrono(); },1000);
   } else {
     rodando=false; clearInterval(timer); btnCrono.innerText="INICIAR";
-    salvarDados();
   }
+  window.salvarDados();
 }
 
-function zerarCrono(){ segundos=0; atualizarDisplayCrono(); salvarDados(); }
+window.zerarCrono = function(){ segundos=0; window.atualizarDisplayCrono(); window.salvarDados(); }
 
-window.onload = () => {
-    carregarDados();
-    setInterval(checar8h, 30000);
-    setInterval(salvarDados, 60000); 
-};
+// Attach events to all inputs for automatic saving
+document.querySelectorAll('input').forEach(el => {
+    if(!el.readOnly) {
+        el.addEventListener('input', window.salvarDados);
+        el.addEventListener('change', window.salvarDados);
+    }
+});
+
+carregarDados();
+setInterval(window.checar8h, 30000);
+setInterval(window.salvarDados, 60000); 
 
 window.addEventListener('beforeunload', () => {
-    if (!bloqueioSalvamento) salvarDados();
+    if (!bloqueioSalvamento) window.salvarDados();
 });
 </script>
 </body>

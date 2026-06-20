@@ -123,9 +123,9 @@
 const KEY_LOGISTICA = 'frentes_usa_vFinal';
 const KEY_CHUVA = 'dados_chuva_coa_v1';
 
-function sincronizarComLogistica() {
-    const dadosLog = JSON.parse(localStorage.getItem(KEY_LOGISTICA)) || { frentes: [] };
-    const dadosChuvaExistentes = JSON.parse(localStorage.getItem(KEY_CHUVA)) || { frentes: {}, obs: "" };
+window.sincronizarComLogistica = function(dadosLogParam, dadosChuvaParam) {
+    const dadosLog = dadosLogParam || { frentes: [] };
+    const dadosChuvaExistentes = dadosChuvaParam || { frentes: {}, obs: "" };
     
     const grid = document.getElementById('frentesGrid');
     grid.innerHTML = "";
@@ -179,7 +179,8 @@ function sincronizarComLogistica() {
     document.getElementById('obs-geral').innerText = dadosChuvaExistentes.obs || "...";
 }
 
-function salvarDados() {
+let timeoutId;
+window.salvarDados = function() {
     const backup = { frentes: {}, obs: document.getElementById('obs-geral').innerText };
     document.querySelectorAll('.card-body').forEach(cb => {
         const idInterno = cb.getAttribute('data-id-interno');
@@ -192,10 +193,14 @@ function salvarDados() {
             status: cb.querySelector('.input-status').value
         };
     });
-    localStorage.setItem(KEY_CHUVA, JSON.stringify(backup));
+    
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => {
+        if(window.salvarNoFirebase) window.salvarNoFirebase(backup);
+    }, 1000);
 }
 
-function updateTotal(el) {
+window.updateTotal = function(el) {
     const card = el.closest('.front-card');
     const inputs = card.querySelectorAll('.turn-input');
     const display = card.querySelector('.total-val');
@@ -206,10 +211,10 @@ function updateTotal(el) {
     });
     display.innerText = soma.toFixed(1).replace('.', ',') + " mm";
     soma > 0 ? display.classList.add('has-rain') : display.classList.remove('has-rain');
-    salvarDados();
+    window.salvarDados();
 }
 
-function colorirStatus(el) {
+window.colorirStatus = function(el) {
     const v = el.value.toUpperCase().trim();
     const parent = el.closest('.col-status');
     const tempDiv = parent.querySelector('.temp-status-div');
@@ -226,10 +231,10 @@ function colorirStatus(el) {
     }
     
     tempDiv.innerText = v;
-    salvarDados();
+    window.salvarDados();
 }
 
-async function tirarPrint() {
+window.tirarPrint = async function() {
     const btn = document.getElementById('btnCapture');
     const area = document.getElementById('area-relatorio');
     
@@ -263,12 +268,12 @@ async function tirarPrint() {
         }
     }, 150);
 }
-
-window.onload = sincronizarComLogistica;
 </script>
+
     <!-- Firebase App (the core Firebase SDK) is always required and must be listed first -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCnBug9V28EZG1NNzYjqShsYesjgewroPo",
@@ -278,8 +283,36 @@ window.onload = sincronizarComLogistica;
             messagingSenderId: "655932765006",
             appId: "1:655932765006:web:f2e239fb0a1b2f5867241f"
         };
-
         const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        const docRefChuva = doc(db, "torre_logistica", "monitoramento_chuva");
+        const docRefFrentes = doc(db, "torre_logistica", "localizacao_frentes");
+
+        let dadosLogCache = { frentes: [] };
+        let dadosChuvaCache = { frentes: {}, obs: "" };
+        let init = false;
+
+        onSnapshot(docRefFrentes, (docSnap) => {
+            if(docSnap.exists()) {
+                dadosLogCache = docSnap.data();
+                if(!dadosLogCache.frentes) dadosLogCache.frentes = [];
+            }
+            if(init && window.sincronizarComLogistica) window.sincronizarComLogistica(dadosLogCache, dadosChuvaCache);
+        });
+
+        onSnapshot(docRefChuva, (docSnap) => {
+            if(docSnap.exists()) {
+                dadosChuvaCache = docSnap.data();
+                if(!dadosChuvaCache.frentes) dadosChuvaCache.frentes = {};
+            }
+            init = true;
+            if(window.sincronizarComLogistica) window.sincronizarComLogistica(dadosLogCache, dadosChuvaCache);
+        });
+
+        window.salvarNoFirebase = function(dadosChuva) {
+            setDoc(docRefChuva, dadosChuva, { merge: true }).catch(console.error);
+        };
     </script>
 </body>
 </html>

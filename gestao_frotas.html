@@ -307,9 +307,24 @@
     </div>
   </div>
 
-  <script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, doc, setDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCnBug9V28EZG1NNzYjqShsYesjgewroPo",
+        authDomain: "torre-ctt-usa.firebaseapp.com",
+        projectId: "torre-ctt-usa",
+        storageBucket: "torre-ctt-usa.firebasestorage.app",
+        messagingSenderId: "655932765006",
+        appId: "1:655932765006:web:f2e239fb0a1b2f5867241f"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const docRef = doc(db, "torre_logistica", "gestao_frotas");
+
     // --- FUNÇÕES DE ADICIONAR E REMOVER LINHAS ---
-    function addRow(id) {
+    window.addRow = function(id) {
       const tb = document.querySelector(`#${id} tbody`);
       const tr = document.createElement('tr');
       tr.innerHTML = `
@@ -320,12 +335,12 @@
       vincularEventosAutoSave();
     }
 
-    function removeRow(id) { 
+    window.removeRow = function(id) { 
       const tb = document.querySelector(`#${id} tbody`); 
       if (tb.lastElementChild) { tb.removeChild(tb.lastElementChild); processarDados(); } 
     }
     
-    function addDisponivelRow() {
+    window.addDisponivelRow = function() {
       document.querySelectorAll('.disp-column').forEach(col => {
         const div = document.createElement('div'); div.className = 'disp-cell';
         div.innerHTML = `<input type="text" class="in-disp">`; col.appendChild(div);
@@ -333,7 +348,7 @@
       vincularEventosAutoSave();
     }
 
-    function removeDisponivelRow() {
+    window.removeDisponivelRow = function() {
       document.querySelectorAll('.disp-column').forEach(col => { 
         if (col.lastElementChild && !col.lastElementChild.classList.contains('disp-label')) { col.removeChild(col.lastElementChild); }
       });
@@ -385,68 +400,75 @@
             baseDados: Array.from(document.querySelectorAll('#frota-corpo input')).map(i => i.value),
             industria: Array.from(document.querySelectorAll('.in-ind')).map(i => i.value)
         };
-        localStorage.setItem('dadosFrotaUSA_v3', JSON.stringify(dados));
+        
+        // Debounce para não sobrecarregar o Firebase
+        clearTimeout(window.timeoutId);
+        window.timeoutId = setTimeout(() => {
+            setDoc(docRef, dados, { merge: true }).catch(console.error);
+        }, 1000);
     }
 
     // --- CARREGAR DADOS ---
     function carregarDadosSalvos() {
-        const salvos = localStorage.getItem('dadosFrotaUSA_v3');
-        
-        if (!salvos) { 
-            for(let i=0; i<8; i++) { addRow('tableA'); addRow('tableB'); }
-            for(let i=0; i<6; i++) { addDisponivelRow(); }
-            vincularEventosAutoSave();
-            return; 
-        }
-
-        const d = JSON.parse(salvos);
-        
-        document.querySelector('#tableA tbody').innerHTML = '';
-        document.querySelector('#tableB tbody').innerHTML = '';
-        document.querySelectorAll('.disp-column').forEach(c => { 
-            const l = c.querySelector('.disp-label'); 
-            c.innerHTML = ''; c.appendChild(l); 
-        });
-
-        for(let i=0; i < (d.qtdLinhasManutA || 8); i++) addRow('tableA');
-        for(let i=0; i < (d.qtdLinhasManutB || 8); i++) addRow('tableB');
-        
-        // Mapear dados para as tabelas de manutenção
-        const tabelaA_rows = document.querySelectorAll('#tableA tbody tr');
-        const tabelaB_rows = document.querySelectorAll('#tableB tbody tr');
-        let idxA = 0; let idxB = 0;
-
-        if(d.manutencao) {
-            d.manutencao.forEach(item => {
-                let linha;
-                if(item.tabelaId === 'tableA') { linha = tabelaA_rows[idxA]; idxA++; }
-                else { linha = tabelaB_rows[idxB]; idxB++; }
-
-                if(linha) {
-                    linha.querySelector('.in-frota').value = item.frota;
-                    linha.querySelector('td:nth-child(2) input').value = item.problema;
-                    linha.querySelector('td:nth-child(3) select').value = item.local;
+        onSnapshot(docRef, (docSnap) => {
+            if (!docSnap.exists()) { 
+                if(document.querySelector('#tableA tbody').children.length === 0) {
+                    for(let i=0; i<8; i++) { window.addRow('tableA'); window.addRow('tableB'); }
+                    for(let i=0; i<6; i++) { window.addDisponivelRow(); }
+                    vincularEventosAutoSave();
                 }
+                return; 
+            }
+
+            const d = docSnap.data();
+            
+            document.querySelector('#tableA tbody').innerHTML = '';
+            document.querySelector('#tableB tbody').innerHTML = '';
+            document.querySelectorAll('.disp-column').forEach(c => { 
+                const l = c.querySelector('.disp-label'); 
+                c.innerHTML = ''; c.appendChild(l); 
             });
-        }
 
-        const qPatio = d.qtdLinhasPatio || 6;
-        for(let i=0; i < qPatio; i++) addDisponivelRow();
-        const inD = document.querySelectorAll('.in-disp');
-        if(d.disponiveis) d.disponiveis.forEach((v, i) => { if(inD[i]) inD[i].value = v; });
+            for(let i=0; i < (d.qtdLinhasManutA || 8); i++) window.addRow('tableA');
+            for(let i=0; i < (d.qtdLinhasManutB || 8); i++) window.addRow('tableB');
+            
+            // Mapear dados para as tabelas de manutenção
+            const tabelaA_rows = document.querySelectorAll('#tableA tbody tr');
+            const tabelaB_rows = document.querySelectorAll('#tableB tbody tr');
+            let idxA = 0; let idxB = 0;
 
-        document.getElementById('input-controlador').value = d.controlador || '';
-        document.getElementById('input-coordenador').value = d.coordenador || '';
-        document.getElementById('txt-obs').value = d.observacoes || '';
-        document.getElementById('select-turno').value = d.turno || 'A';
-        
-        const inB = document.querySelectorAll('#frota-corpo input');
-        if(d.baseDados) d.baseDados.forEach((v, i) => { if(inB[i]) inB[i].value = v; });
-        const inI = document.querySelectorAll('.in-ind');
-        if(d.industria) d.industria.forEach((v, i) => { if(inI[i]) inI[i].value = v; });
+            if(d.manutencao) {
+                d.manutencao.forEach(item => {
+                    let linha;
+                    if(item.tabelaId === 'tableA') { linha = tabelaA_rows[idxA]; idxA++; }
+                    else { linha = tabelaB_rows[idxB]; idxB++; }
 
-        vincularEventosAutoSave();
-        processarDados();
+                    if(linha) {
+                        linha.querySelector('.in-frota').value = item.frota;
+                        linha.querySelector('td:nth-child(2) input').value = item.problema;
+                        linha.querySelector('td:nth-child(3) select').value = item.local;
+                    }
+                });
+            }
+
+            const qPatio = d.qtdLinhasPatio || 6;
+            for(let i=0; i < qPatio; i++) window.addDisponivelRow();
+            const inD = document.querySelectorAll('.in-disp');
+            if(d.disponiveis) d.disponiveis.forEach((v, i) => { if(inD[i]) inD[i].value = v; });
+
+            document.getElementById('input-controlador').value = d.controlador || '';
+            document.getElementById('input-coordenador').value = d.coordenador || '';
+            document.getElementById('txt-obs').value = d.observacoes || '';
+            document.getElementById('select-turno').value = d.turno || 'A';
+            
+            const inB = document.querySelectorAll('#frota-corpo input');
+            if(d.baseDados) d.baseDados.forEach((v, i) => { if(inB[i]) inB[i].value = v; });
+            const inI = document.querySelectorAll('.in-ind');
+            if(d.industria) d.industria.forEach((v, i) => { if(inI[i]) inI[i].value = v; });
+
+            vincularEventosAutoSave();
+            processarDados();
+        });
     }
 
     // --- PROCESSAMENTO DE CORES E CALCULOS ---
@@ -536,14 +558,13 @@
         });
     }
 
-    function limparQuadro() { 
+    window.limparQuadro = function() { 
         if(confirm("Deseja realmente limpar todos os campos?")) { 
-            localStorage.removeItem('dadosFrotaUSA_v3'); 
-            location.reload(); 
+            deleteDoc(docRef).then(() => location.reload());
         } 
     }
 
-    function imprimirPDF() {
+    window.imprimirPDF = function() {
         const d = document.getElementById('data-atual').value.replace(/\//g, '-'); 
         const t = document.getElementById('select-turno').value; 
         document.title = `Frota_USA_${d}_T${t}`; window.print();

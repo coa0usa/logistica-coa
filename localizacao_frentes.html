@@ -170,17 +170,37 @@ function blankFrente(n){
   }; 
 }
 
-// SALVAMENTO GLOBAL
-function save(){ localStorage.setItem(KEY, JSON.stringify(STATE)); }
+let saveTimeout;
+function save(){ 
+  if (window.salvarNoFirebase) {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => window.salvarNoFirebase(STATE), 1000);
+  }
+}
 function saveObs(v){ STATE.obs = v.toUpperCase(); save(); }
 
-function syncComPatio() {
-    const moagemShared = localStorage.getItem('shared_moagem');
-    const tcPatioShared = localStorage.getItem('shared_tcPatio');
-    if (moagemShared !== null) { document.getElementById('inp-moa-real').value = moagemShared; STATE.moaReal = moagemShared; }
-    if (tcPatioShared !== null) { document.getElementById('inp-ton-patio').value = tcPatioShared; STATE.tonPatio = tcPatioShared; }
-    save();
-}
+window.updateStateFromFirebase = function(data) {
+    STATE = data;
+    if(!STATE.frentes) STATE.frentes = [];
+    if(!STATE.frentes.length) { for(let i=1; i<=7; i++) STATE.frentes.push(blankFrente(`FRENTE 0${i}`)); }
+    
+    document.getElementById('sel-turno').value=STATE.turno || 'C';
+    document.getElementById('inp-data').value=STATE.data || '';
+    document.getElementById('inp-controlador').value=STATE.controlador || '';
+    document.getElementById('inp-coordenador').value=STATE.coordenador || '';
+    document.getElementById('obs-geral').innerText = STATE.obs || '';
+    document.getElementById('inp-moa-real').value = STATE.moaReal || '';
+    document.getElementById('inp-ton-patio').value = STATE.tonPatio || '';
+    document.getElementById('inp-moa-plan').value = STATE.moaPlan || '';
+    document.getElementById('inp-ent-plan').value = STATE.entPlan || '';
+    document.getElementById('inp-ent-real').value = STATE.entReal || '';
+    
+    updateSemaforoUI();
+    render();
+};
+
+window.updateMoagem = function(val) { STATE.moaReal = val; save(); };
+window.updatePatio = function(val) { STATE.tonPatio = val; save(); };
 
 function setSemaforo(color) { STATE.semaforo = color; save(); updateSemaforoUI(); }
 
@@ -301,21 +321,20 @@ document.getElementById('inp-coordenador').oninput=e=>{STATE.coordenador=e.targe
 
 document.getElementById('btn-pdf').onclick=()=>{ window.print(); };
 document.getElementById('btn-add-frente').onclick=()=>{ const n=prompt("Nome da Frente:"); if(n) {STATE.frentes.push(blankFrente(n.toUpperCase())); save(); render();} };
-document.getElementById('btn-limpar').onclick=()=>{ if(confirm("Limpar tudo?")){localStorage.clear(); location.reload();} };
+document.getElementById('btn-limpar').onclick=()=>{ if(confirm("Limpar tudo?")){ if(window.apagarDoFirebase) window.apagarDoFirebase(); } };
 
-window.addEventListener('storage', (e) => { if (e.key === 'shared_moagem' || e.key === 'shared_tcPatio') syncComPatio(); });
-
-/* INIT - CARREGA TUDO AO ABRIR */
+/* INIT - CARREGA TUDO AO ABRIR (feito via Firebase no módulo) */
 document.getElementById('sel-turno').value=STATE.turno;
 document.getElementById('inp-data').value=STATE.data;
 document.getElementById('inp-controlador').value=STATE.controlador || '';
 document.getElementById('inp-coordenador').value=STATE.coordenador || '';
 document.getElementById('obs-geral').innerText = STATE.obs || '';
-syncComPatio(); updateSemaforoUI(); render();
+updateSemaforoUI(); render();
 </script>
     <!-- Firebase App (the core Firebase SDK) is always required and must be listed first -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCnBug9V28EZG1NNzYjqShsYesjgewroPo",
@@ -325,8 +344,42 @@ syncComPatio(); updateSemaforoUI(); render();
             messagingSenderId: "655932765006",
             appId: "1:655932765006:web:f2e239fb0a1b2f5867241f"
         };
-
         const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const docRef = doc(db, "torre_logistica", "localizacao_frentes");
+        const sharedRef = doc(db, "torre_logistica", "shared_data");
+
+        window.salvarNoFirebase = function(estado) {
+            setDoc(docRef, estado, { merge: true }).catch(console.error);
+        };
+
+        window.apagarDoFirebase = function() {
+            deleteDoc(docRef).then(() => location.reload());
+        };
+
+        let carregamentoInicial = false;
+        onSnapshot(docRef, (docSnap) => {
+            if(docSnap.exists()) {
+                const data = docSnap.data();
+                if (window.updateStateFromFirebase) window.updateStateFromFirebase(data);
+            }
+            carregamentoInicial = true;
+        });
+
+        // Escutar compartilhamentos do pátio
+        onSnapshot(sharedRef, (docSnap) => {
+            if(docSnap.exists() && carregamentoInicial) {
+                const data = docSnap.data();
+                if(data.shared_moagem !== undefined && window.updateMoagem) {
+                    document.getElementById('inp-moa-real').value = data.shared_moagem;
+                    window.updateMoagem(data.shared_moagem);
+                }
+                if(data.shared_tcPatio !== undefined && window.updatePatio) {
+                    document.getElementById('inp-ton-patio').value = data.shared_tcPatio;
+                    window.updatePatio(data.shared_tcPatio);
+                }
+            }
+        });
     </script>
 </body>
 </html>
