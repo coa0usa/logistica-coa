@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Painel Horário – Santa Adélia</title>
+
+<style>
+  :root {
+    --usa-verde-escuro: #004A2F;
+    --usa-verde-medio: #2D7A4C;
+    --usa-verde-folha: #61A146;
+    --usa-verde-claro: #B2D969;
+    --usa-azul-petroleo: #265E64;
+    --font: "Segoe UI", Roboto, Arial, sans-serif;
+    --bg-page: #f0f4f2;
+    --text-main: #1a1a1a;
+    --grid-border: #d1d9d4;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg-page); color: var(--text-main); font: 11px/1.3 var(--font); }
+  .wrap { max-width: 100%; padding: 15px; }
+  
+  .header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  h1 { margin: 0; font-size: 20px; color: var(--usa-verde-escuro); border-left: 5px solid var(--usa-verde-claro); padding-left: 10px; text-transform: uppercase; }
+
+  .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn-action {
+    background: var(--usa-verde-medio); color: white; border: none; padding: 6px 12px;
+    border-radius: 4px; cursor: pointer; font-weight: bold; text-transform: uppercase; font-size: 11px;
+  }
+  .btn-action:hover { background: var(--usa-verde-escuro); }
+  .btn-secondary { background: #e7efe9; color: #0f3d2e; border: 1px solid var(--usa-verde-medio); }
+  .btn-secondary:hover { background: #d7e6dc; }
+  .btn-toggle { background: var(--usa-azul-petroleo); }
+
+  h2 { margin: 15px 0 8px; font-size: 14px; color: var(--usa-verde-medio); text-transform: uppercase; border-bottom: 1px solid var(--grid-border); }
+  h2 small { font-size: 10px; color: #666; text-transform: none; }
+
+  .sheet { border: 1px solid var(--usa-verde-escuro); border-radius: 6px; overflow: auto; background: #fff; margin-bottom: 15px; }
+  table { border-collapse: separate; border-spacing: 0; min-width: 1400px; width: 100%; table-layout: fixed; }
+
+  thead th {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--usa-verde-escuro); color: #fff; 
+    border: 1px solid var(--grid-border); padding: 6px; text-align: center;
+    font-size: 10px;
+  }
+
+  tbody th, tbody td { border-right: 1px solid var(--grid-border); border-bottom: 1px solid var(--grid-border); padding: 4px; }
+
+  .sticky-col {
+    position: sticky; left: 0; z-index: 8; background: #f8faf9;
+    width: 160px; text-align: left; font-weight: 700; color: var(--usa-verde-escuro);
+    border-right: 2px solid var(--usa-verde-medio) !important;
+  }
+
+  .cell { text-align: center; background: #ffffff; color: #000; font-weight: 600; font-size: 11px; }
+  .cell[contenteditable="true"]:focus { outline: none; background: #fffde7 !important; box-shadow: inset 0 0 0 2px var(--usa-verde-medio); }
+  .cell-readonly { background: #f9f9f9; color: var(--usa-verde-escuro); cursor: not-allowed; }
+
+  .row-total-geral { background: #e8f5e9 !important; font-weight: 800; color: var(--usa-verde-escuro); }
+  .row-total-geral td, .row-total-geral th { border-top: 2px solid var(--usa-verde-medio); }
+
+  .avg-sub { background: #e8f0eb; color: var(--usa-verde-escuro); font-weight: 800; text-align: center; }
+  .sub-total th.sticky-col, .sub-total td { background: var(--usa-verde-folha); font-weight: 800; color: #ffffff; }
+  .sep-row td { background: var(--usa-verde-escuro); height: 3px; padding: 0; }
+
+  .turno-panel { display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 12px; margin-top: 20px; }
+  .turno-card {
+    position: relative;
+    flex: 1 1 300px;
+    background:#fff;
+    border:2px solid #cfd8d3;
+    border-radius:8px;
+    padding:10px 12px;
+    min-width:300px;
+  }
+  .turno-card h3 { margin:0 0 4px; color:var(--usa-verde-escuro); font-size:13px; }
+  .turno-card .range { color:#4d6b62; font-size:11px; margin-bottom:6px; }
+
+  .kv {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: 1fr;
+    gap: 10px;
+  }
+  .kv div {
+    background:#f7faf8;
+    padding:6px 8px;
+    border:1px solid #dfe8e3;
+    border-radius:6px;
+    display:flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 54px;
+  }
+  .kv label { display:block; font-size:10px; color:#557; margin-bottom:2px; }
+  .kv strong { font-size:13px; color:#123; }
+
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; z-index: 9999;
+  }
+  .modal {
+    width: 600px; max-width: 95vw; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,.3);
+  }
+  .modal header { padding: 10px 12px; background: var(--usa-verde-medio); color: #fff; font-weight: 700; }
+  .modal .content { padding: 12px; }
+  .modal .row { display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+  .modal footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; background: #f5f7f6; }
+  .danger { background: #ffe5e5; border: 1px solid #e06b6b; color: #7a1f1f; }
+
+  @media print {
+    @page { size: A4 landscape; margin: 3mm; }
+    body { background: #fff; font-size: 8px !important; }
+    .header-actions, .btn-group, .modal-backdrop { display: none !important; }
+    .wrap { padding: 0; width: 100%; }
+    h1 { font-size: 14px; margin-bottom: 2px; }
+    h2 { font-size: 10px; margin: 6px 0 2px; border-bottom: 1px solid #000; }
+    .sheet { border: 1px solid #000; overflow: visible !important; margin-bottom: 5px; border-radius: 0; }
+    table { min-width: 100% !important; width: 100% !important; table-layout: fixed !important; border-collapse: collapse !important; }
+    th, td { padding: 1px 2px !important; font-size: 7.5px !important; border: 0.5px solid #444 !important; height: auto !important; }
+    .sticky-col { position: static !important; width: 100px !important; background: #eee !important; border-right: 1px solid #000 !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="header-actions">
+    <h1>Sistema Integrado USA - Painel Horário</h1>
+    <div class="btn-group">
+      <button class="btn-action btn-toggle" onclick="toggleRows('P')">Exibir/Ocultar P</button>
+      <button class="btn-action btn-toggle" onclick="toggleRows('R')">Exibir/Ocultar R</button>
+      <button class="btn-action" onclick="window.print()">Imprimir</button>
+      <button class="btn-action danger" onclick="zerarDia()">Zerar Dia</button>
+      <button class="btn-action btn-secondary" onclick="openFrentesModal()">Frentes</button>
+      <button class="btn-action btn-secondary" onclick="openCompsModal()">Composições</button>
+    </div>
+  </div>
+
+  <div id="capture-area">
+    <h2>Monitoramento de Vazão (m³/h) <small>(Soma no Total Geral, Médias nas Frentes)</small></h2>
+    <div class="sheet">
+      <table id="tbl-vazao">
+        <thead>
+          <tr id="head-vazao"><th class="sticky-col">FRENTES</th><th colspan="4">MÉDIA</th></tr>
+        </thead>
+        <tbody id="body-vazao"></tbody>
+      </table>
+    </div>
+
+    <h2>Logística: Saída de Caminhões (Frotas) <small>(Média em Linhas de Composição)</small></h2>
+    <div class="sheet">
+      <table id="tbl-saida">
+        <thead>
+          <tr id="head-saida"><th class="sticky-col">COMPOSIÇÃO</th><th colspan="4">MÉDIA</th></tr>
+        </thead>
+        <tbody id="body-saida"></tbody>
+      </table>
+    </div>
+
+    <h2>Resumo de Turnos</h2>
+    <div class="turno-panel">
+      <div class="turno-card" id="card-A"><h3>Turno A</h3><div class="range">07:00 – 14:59</div><div class="kv"><div><label>Vazão P</label><strong id="A-P">0</strong></div><div><label>Vazão R</label><strong id="A-R">0</strong></div><div><label>Aderência</label><strong id="A-ADR">—</strong></div><div><label>Saídas</label><strong id="A-SAI">0</strong></div><div><label>Nec. meta</label><strong id="A-REQ">0</strong></div><div><label>Dif. saídas</label><strong id="A-GAP">0</strong></div></div></div>
+      <div class="turno-card" id="card-B"><h3>Turno B</h3><div class="range">15:00 – 22:59</div><div class="kv"><div><label>Vazão P</label><strong id="B-P">0</strong></div><div><label>Vazão R</label><strong id="B-R">0</strong></div><div><label>Aderência</label><strong id="B-ADR">—</strong></div><div><label>Saídas</label><strong id="B-SAI">0</strong></div><div><label>Nec. meta</label><strong id="B-REQ">0</strong></div><div><label>Dif. saídas</label><strong id="B-GAP">0</strong></div></div></div>
+      <div class="turno-card" id="card-C"><h3>Turno C</h3><div class="range">23:00 – 06:59</div><div class="kv"><div><label>Vazão P</label><strong id="C-P">0</strong></div><div><label>Vazão R</label><strong id="C-R">0</strong></div><div><label>Aderência</label><strong id="C-ADR">—</strong></div><div><label>Saídas</label><strong id="C-SAI">0</strong></div><div><label>Nec. meta</label><strong id="C-REQ">0</strong></div><div><label>Dif. saídas</label><strong id="C-GAP">0</strong></div></div></div>
+      <div class="turno-card" id="card-G"><h3>Geral (Dia)</h3><div class="range">07:00 – 06:59</div><div class="kv"><div><label>Vazão P</label><strong id="G-P">0</strong></div><div><label>Vazão R</label><strong id="G-R">0</strong></div><div><label>Aderência</label><strong id="G-ADR">—</strong></div><div><label>Saídas</label><strong id="G-SAI">0</strong></div><div><label>Nec. meta</label><strong id="G-REQ">0</strong></div><div><label>Dif. saídas</label><strong id="G-GAP">0</strong></div></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-frentes"><div class="modal"><header>Frentes</header><div class="content"><div class="row"><div><label>Nome</label><input type="text" id="nova-frente"></div><button onclick="addFrente()">Add</button></div><div class="row"><div><label>Remover</label><select id="rem-frente"></select></div><button class="danger" onclick="removeFrente()">Rem</button></div></div><footer><button onclick="closeFrentesModal()">Fechar</button></footer></div></div>
+<div class="modal-backdrop" id="modal-comps"><div class="modal"><header>Composições</header><div class="content"><div class="row"><div><label>Frente</label><select id="comp-frente-target"></select></div><div><label>Nome</label><input type="text" id="comp-nome"></div><div><label>Cap</label><input type="number" id="comp-cap"></div><button onclick="addComposicao()">Vincular</button></div><div class="row"><div><label>Remover</label><select id="rem-comp"></select></div><button class="danger" onclick="removeComposicao()">Rem</button></div></div><footer><button onclick="closeCompsModal()">Fechar</button></footer></div></div>
+
+<script>
+const HOURS = Array.from({length: 24}, (_, i) => `${String((i + 7) % 24).padStart(2, '0')}:00`);
+const STORAGE_KEY = 'usa_v23_final_data'; 
+const META_KEY = 'usa_v23_final_meta';
+const LAST_FOCUS_KEY = 'usa_last_focus_id'; // Chave para salvar o último campo
+
+let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+let meta = JSON.parse(localStorage.getItem(META_KEY)) || {
+  FRENTES: ['Frente 01', 'Frente 02', 'Frente 03', 'Frente 04', 'Frente 05', 'Frente 06', 'Frente 07'],
+  COMPOSICOES: [{nome:'RODO TREM', cap:60}, {nome:'TREMINHÃO', cap:60}, {nome:'PENTAMINHÃO', cap:100}],
+  MAP: {}
+};
+
+if(Object.keys(meta.MAP).length === 0) { meta.FRENTES.forEach(f => { meta.MAP[f] = ['RODO TREM', 'TREMINHÃO']; }); }
+
+let FRENTES = meta.FRENTES;
+let COMPOSICOES = meta.COMPOSICOES;
+let MAP = meta.MAP;
+
+function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function persistMeta() { localStorage.setItem(META_KEY, JSON.stringify({ FRENTES, COMPOSICOES, MAP })); }
+
+const toNum = v => { const n = parseFloat(String(v).replace(',','.').replace(/[^0-9.]/g, '')); return isFinite(n) ? n : 0; };
+const fmt0 = (n) => (n||0).toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0});
+const fmt1 = (n) => (n||0).toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:1});
+const fmtPct = (v) => (v==null || isNaN(v) || !isFinite(v) ? '—' : (v*100).toLocaleString('pt-BR',{minimumFractionDigits:0, maximumFractionDigits:0}) + '%');
+
+function toggleRows(mode) {
+  document.querySelectorAll(`tr[data-mode-row="${mode}"]`).forEach(row => {
+    row.style.display = (row.style.display === 'none') ? '' : 'none';
+  });
+}
+
+function applyFrotaMask(element) {
+  let val = element.textContent.replace(/[^0-9]/g, '');
+  let formatted = "";
+  for (let i = 0; i < val.length; i++) {
+    if (i > 0 && i % 3 === 0) formatted += " - ";
+    formatted += val[i];
+  }
+  if (element.textContent !== formatted) {
+    const sel = window.getSelection();
+    element.textContent = formatted;
+    if(sel.rangeCount > 0){
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  }
+  return formatted;
+}
+
+function clearTables() {
+  document.getElementById('head-vazao').innerHTML = `<th class="sticky-col">FRENTES</th><th colspan="4">MÉDIA</th>`;
+  document.getElementById('body-vazao').innerHTML = ''; 
+  document.getElementById('head-saida').innerHTML = `<th class="sticky-col">COMPOSIÇÃO</th><th colspan="4">MÉDIA</th>`;
+  document.getElementById('body-saida').innerHTML = ''; 
+}
+
+function compsForFrente(f){ return MAP[f] || []; }
+function getCompByName(name){ return COMPOSICOES.find(c => c.nome === name); }
+function capRefForFrente(frente){
+  const nomes = compsForFrente(frente);
+  if (!nomes.length) return 0;
+  let soma = 0, cnt = 0;
+  nomes.forEach(n=>{ const c = getCompByName(n); if (c) { soma += c.cap; cnt++; } });
+  return cnt>0 ? (soma/cnt) : 0;
+}
+
+function setupTable(type) {
+  const head = document.getElementById(`head-${type}`);
+  const body = document.getElementById(`body-${type}`);
+  HOURS.forEach(h => {
+    const th = document.createElement('th');
+    th.textContent = h;
+    head.insertBefore(th, head.lastElementChild);
+  });
+
+  if (type === 'vazao') {
+    FRENTES.forEach(f => {
+      ['P', 'R'].forEach(mode => {
+        const tr = document.createElement('tr');
+        tr.setAttribute('data-mode-row', mode);
+        let html = `<th class="sticky-col"><span style="font-size:9px;color:#888">${mode}</span> ${f}</th>`;
+        HOURS.forEach(h => {
+          const val = state[`vazao-${f}-${h}-${mode}`] || '';
+          html += `<td class="cell ${mode==='R'?'cell-readonly':''}" contenteditable="${mode==='P'}" data-type="vazao" data-frente="${f}" data-hour="${h}" data-mode="${mode}" id="vazao-${f}-${h}-${mode}">${val}</td>`;
+        });
+        html += `<td class="avg-sub" id="total-vazao-${f}-${mode}" colspan="4">0</td>`;
+        tr.innerHTML = html;
+        body.appendChild(tr);
+      });
+    });
+    
+    ['P', 'R'].forEach(mode => {
+        const tr = document.createElement('tr');
+        tr.className = 'row-total-geral';
+        tr.setAttribute('data-mode-row', mode);
+        let html = `<th class="sticky-col">TOTAL GERAL (${mode})</th>`;
+        HOURS.forEach(h => { html += `<td class="cell cell-readonly" id="total-geral-vazao-${h}-${mode}">0</td>`; });
+        html += `<td class="avg-sub" id="total-geral-vazao-dia-${mode}" colspan="4">0</td>`;
+        tr.innerHTML = html;
+        body.appendChild(tr);
+    });
+
+  } else {
+    FRENTES.forEach(f => {
+      const lista = compsForFrente(f);
+      lista.forEach(nome => {
+        const c = getCompByName(nome);
+        if (!c) return;
+        const key = `${f}_${nome}`;
+        const tr = document.createElement('tr');
+        let html = `<th class="sticky-col">${nome} (${f})</th>`;
+        HOURS.forEach(h => {
+          const val = state[`saida-${key}-${h}`] || '';
+          // Adicionado ID para frotas para permitir foco
+          html += `<td class="cell" contenteditable="true" data-type="saida" data-frente="${f}" data-cap="${c.cap}" data-row="${key}" data-hour="${h}" id="saida-${key}-${h}">${val}</td>`;
+        });
+        html += `<td class="avg-sub" id="total-saida-${key}" colspan="4">0</td>`;
+        tr.innerHTML = html;
+        body.appendChild(tr);
+      });
+      const trSub = document.createElement('tr'); trSub.className = 'sub-total';
+      trSub.innerHTML = `<th class="sticky-col">${f} - FROTAS (SOMA)</th>` + HOURS.map(h => `<td class="cell cell-readonly" id="sub-${f}-${h}">0</td>`).join('') + `<td class="avg-sub" id="sub-total-${f}" colspan="4">0</td>`;
+      body.appendChild(trSub);
+      const sep = document.createElement('tr'); sep.className = 'sep-row'; sep.innerHTML = `<td colspan="${HOURS.length + 5}"></td>`; body.appendChild(sep);
+    });
+  }
+}
+
+function recalcAll() {
+  let tgP = {}, tgR = {};
+
+  HOURS.forEach(h => { 
+    tgP[h]=0; tgR[h]=0; 
+  });
+
+  FRENTES.forEach(f => {
+    const lista = compsForFrente(f);
+    let totalFrotasFrente = 0;
+
+    HOURS.forEach(h => {
+      let vRealHora = 0, totalFHora = 0;
+      lista.forEach(nome => {
+        const c = getCompByName(nome);
+        const cellData = state[`saida-${f}_${nome}-${h}`] || '';
+        const frotas = cellData.match(/\d{3}/g) || [];
+        totalFHora += frotas.length; 
+        vRealHora += (frotas.length * (c?c.cap:0));
+        
+        let sumComp = 0, entriesComp = 0;
+        HOURS.forEach(hh => {
+             const fts = (state[`saida-${f}_${nome}-${hh}`] || '').match(/\d{3}/g) || [];
+             if(fts.length > 0) { sumComp += fts.length; entriesComp++; }
+        });
+        const elC = document.getElementById(`total-saida-${f}_${nome}`); 
+        if(elC) elC.textContent = entriesComp > 0 ? fmt1(sumComp / entriesComp) : 0;
+      });
+      
+      state[`vazao-${f}-${h}-R`] = vRealHora > 0 ? vRealHora : '';
+      const cellR = document.getElementById(`vazao-${f}-${h}-R`); 
+      if(cellR) cellR.textContent = state[`vazao-${f}-${h}-R`];
+      
+      const sub = document.getElementById(`sub-${f}-${h}`); 
+      if(sub) sub.textContent = totalFHora || 0;
+      
+      totalFrotasFrente += totalFHora;
+    });
+
+    const elSubT = document.getElementById(`sub-total-${f}`);
+    if(elSubT) elSubT.textContent = totalFrotasFrente;
+
+    ['P', 'R'].forEach(mode => {
+      let sumF = 0, countF = 0;
+      HOURS.forEach(h => { 
+          const val = toNum(state[`vazao-${f}-${h}-${mode}`]);
+          if(val > 0) { 
+              sumF += val; countF++; 
+              if(mode==='P') { tgP[h]+=val; } else { tgR[h]+=val; }
+          }
+      });
+      const el = document.getElementById(`total-vazao-${f}-${mode}`); 
+      if(el) el.textContent = countF > 0 ? fmt1(sumF / countF) : 0;
+    });
+  });
+
+  // TOTAL GERAL (Rodapé) - Agora exibindo a SOMA (Totalização)
+  let sumTotalGeralP = 0;
+  let sumTotalGeralR = 0;
+
+  HOURS.forEach(h => {
+      const somaH_P = tgP[h];
+      const somaH_R = tgR[h];
+      
+      const elGP = document.getElementById(`total-geral-vazao-${h}-P`);
+      if(elGP) elGP.textContent = fmt0(somaH_P);
+      const elGR = document.getElementById(`total-geral-vazao-${h}-R`);
+      if(elGR) elGR.textContent = fmt0(somaH_R);
+
+      sumTotalGeralP += somaH_P;
+      sumTotalGeralR += somaH_R;
+  });
+
+  // A média do dia no Total Geral continua sendo a média das somas horárias
+  const elDiaP = document.getElementById(`total-geral-vazao-dia-P`);
+  if(elDiaP) {
+      let hAtivas = HOURS.filter(h => tgP[h] > 0).length;
+      elDiaP.textContent = hAtivas > 0 ? fmt1(sumTotalGeralP / hAtivas) : 0;
+  }
+  const elDiaR = document.getElementById(`total-geral-vazao-dia-R`);
+  if(elDiaR) {
+      let hAtivas = HOURS.filter(h => tgR[h] > 0).length;
+      elDiaR.textContent = hAtivas > 0 ? fmt1(sumTotalGeralR / hAtivas) : 0;
+  }
+
+  // Resumo Turnos
+  const sums = { A:{P:0,R:0,S:0,Q:0}, B:{P:0,R:0,S:0,Q:0}, C:{P:0,R:0,S:0,Q:0}, G:{P:0,R:0,S:0,Q:0} };
+  HOURS.forEach(hh => {
+    const hNum = parseInt(hh.split(':')[0]);
+    let b = (hNum >= 7 && hNum <= 14) ? 'A' : (hNum >= 15 && hNum <= 22 ? 'B' : 'C');
+    
+    // Somas para os cards de turno
+    let totalSaidasH = 0;
+    FRENTES.forEach(f => {
+        const cellS = document.getElementById(`sub-${f}-${hh}`);
+        totalSaidasH += toNum(cellS ? cellS.textContent : 0);
+    });
+
+    sums[b].P += tgP[hh]; sums[b].R += tgR[hh]; sums[b].S += totalSaidasH; 
+    sums.G.P += tgP[hh]; sums.G.R += tgR[hh]; sums.G.S += totalSaidasH;
+  });
+
+  ['A','B','C','G'].forEach(k => {
+    document.getElementById(`${k}-P`).textContent = fmt0(sums[k].P);
+    document.getElementById(`${k}-R`).textContent = fmt0(sums[k].R);
+    document.getElementById(`${k}-SAI`).textContent = fmt0(sums[k].S);
+    document.getElementById(`${k}-ADR`).textContent = fmtPct(sums[k].P>0?sums[k].R/sums[k].P:0);
+  });
+}
+
+// Funções de Modal e Manutenção
+function openFrentesModal(){
+  const sel = document.getElementById('rem-frente'); sel.innerHTML = '<option value="">Selecione...</option>';
+  FRENTES.forEach(f => { const op = document.createElement('option'); op.value = f; op.textContent = f; sel.appendChild(op); });
+  document.getElementById('modal-frentes').style.display = 'flex';
+}
+function closeFrentesModal(){ document.getElementById('modal-frentes').style.display = 'none'; }
+function addFrente(){
+  const n = document.getElementById('nova-frente').value.trim().toUpperCase();
+  if(!n || FRENTES.includes(n)) return;
+  FRENTES.push(n); MAP[n] = ['RODO TREM', 'TREMINHÃO'];
+  persistMeta(); init(); closeFrentesModal();
+}
+function removeFrente(){
+  const n = document.getElementById('rem-frente').value;
+  if(!n || !confirm(`Remover ${n}?`)) return;
+  FRENTES = FRENTES.filter(f => f !== n); delete MAP[n];
+  persistMeta(); init(); closeFrentesModal();
+}
+function openCompsModal(){
+  const selF = document.getElementById('comp-frente-target'); selF.innerHTML = '';
+  FRENTES.forEach(f => { const op = document.createElement('option'); op.value = f; op.textContent = f; selF.appendChild(op); });
+  const selR = document.getElementById('rem-comp'); selR.innerHTML = '<option value="">Selecione...</option>';
+  COMPOSICOES.forEach(c => { const op = document.createElement('option'); op.value = c.nome; op.textContent = c.nome; selR.appendChild(op); });
+  document.getElementById('modal-comps').style.display = 'flex';
+}
+function closeCompsModal(){ document.getElementById('modal-comps').style.display = 'none'; }
+function addComposicao(){
+  const f = document.getElementById('comp-frente-target').value;
+  const n = document.getElementById('comp-nome').value.trim().toUpperCase();
+  const c = parseInt(document.getElementById('comp-cap').value);
+  if(!f || !n || isNaN(c)) return;
+  if(!COMPOSICOES.find(x => x.nome === n)) COMPOSICOES.push({nome:n, cap:c});
+  if(!MAP[f].includes(n)) MAP[f].push(n);
+  persistMeta(); init(); closeCompsModal();
+}
+function removeComposicao(){
+  const n = document.getElementById('rem-comp').value;
+  if(!n || !confirm(`Remover ${n}?`)) return;
+  COMPOSICOES = COMPOSICOES.filter(c => c.nome !== n);
+  Object.keys(MAP).forEach(f => { MAP[f] = MAP[f].filter(x => x !== n); });
+  persistMeta(); init(); closeCompsModal();
+}
+function zerarDia(){ if(confirm("Apagar todos os lançamentos?")) { state = {}; localStorage.removeItem(LAST_FOCUS_KEY); save(); init(); } }
+
+// Lógica de Eventos e Foco
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t.dataset.type === 'saida') {
+      state[`saida-${t.dataset.row}-${t.dataset.hour}`] = applyFrotaMask(t); 
+  } else if (t.dataset.type === 'vazao') {
+      state[`vazao-${t.dataset.frente}-${t.dataset.hour}-${t.dataset.mode}`] = t.textContent; 
+  }
+  
+  if(t.id) localStorage.setItem(LAST_FOCUS_KEY, t.id); // Salva onde o usuário está digitando
+  save(); 
+  recalcAll();
+});
+
+// Ao focar em um campo, garante que o ID seja salvo
+document.addEventListener('focusin', e => {
+    if(e.target.id) localStorage.setItem(LAST_FOCUS_KEY, e.target.id);
+});
+
+function init() { 
+  clearTables(); 
+  setupTable('vazao'); 
+  setupTable('saida'); 
+  recalcAll(); 
+
+  // Recupera o foco no último campo editado após o reload/init
+  const lastId = localStorage.getItem(LAST_FOCUS_KEY);
+  if(lastId) {
+      const el = document.getElementById(lastId);
+      if(el) {
+          setTimeout(() => {
+              el.focus();
+              // Coloca o cursor no final do texto
+              const range = document.createRange();
+              const sel = window.getSelection();
+              range.selectNodeContents(el);
+              range.collapse(false);
+              sel.removeAllRanges();
+              sel.addRange(range);
+          }, 100);
+      }
+  }
+}
+init();
+</script>
+    <!-- Firebase App (the core Firebase SDK) is always required and must be listed first -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCnBug9V28EZG1NNzYjqShsYesjgewroPo",
+            authDomain: "torre-ctt-usa.firebaseapp.com",
+            projectId: "torre-ctt-usa",
+            storageBucket: "torre-ctt-usa.firebasestorage.app",
+            messagingSenderId: "655932765006",
+            appId: "1:655932765006:web:f2e239fb0a1b2f5867241f"
+        };
+
+        const app = initializeApp(firebaseConfig);
+    </script>
+</body>
+</html>

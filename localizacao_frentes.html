@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CONTROLE DE LOGÍSTICA x FRENTES DE COLHEITA</title>
+<style>
+  :root{
+    --green-900:#0b4f33; --green-800:#0f6a44; --grid:#1f2937;
+    --ink:#0b1220; --muted:#475569; --bg:#ffffff;
+    --shade:#edf4ed; --head:#e9f1ea; --accent:#22c55e; --danger:#ef4444;
+    --sep-line: #000000; 
+  }
+  
+  html,body{margin:0;background:#f1f5f9;color:var(--ink);font:10px/1.1 'Segoe UI', Arial, sans-serif}
+  
+  @media print {
+    @page { size: A4 portrait; margin: 5mm; }
+    body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .header-btns, .front-tools, dialog, #btn-add-frente, .btn-remove { display: none !important; }
+    .page { box-shadow: none !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 0 !important; }
+    .header-main { padding: 4px 10px !important; }
+    .header-grid, .status-panel { padding: 4px 10px !important; gap: 4px !important; border: 1px solid #ddd !important; margin-bottom: 2px !important; }
+    .content { padding: 4px 10px !important; }
+    .front-head, .front-cols { display: grid !important; grid-template-columns: 1.6fr 1.6fr 1.6fr 1.2fr !important; width: 100% !important; }
+    .front { page-break-inside: avoid; margin-bottom: 8px !important; display: grid !important; grid-template-columns: 30px 1fr !important; border: 2px solid var(--grid) !important; }
+    .line { min-height: 24px !important; }
+    .line .lab { font-size: 7.5px !important; width: 45px !important; }
+    .line .val { font-size: 9px !important; }
+    .line.sep-row { border-bottom: 3px solid #000 !important; } 
+    .semaforo { background: #1f2937 !important; border-radius: 8px !important; padding: 3px 5px !important; }
+    .led { border: 1px solid #000 !important; width: 12px !important; height: 12px !important; }
+    .obs-container { page-break-inside: avoid; margin-top: 10px !important; border: 1px solid var(--grid) !important; }
+  }
+
+  .page{ max-width: 1160px; margin:0 auto; background: #fff; min-height: 100vh; box-shadow: 0 0 20px rgba(0,0,0,0.1); padding-bottom: 30px; }
+  .header-main { background: var(--green-900); padding: 6px 15px; display: flex; justify-content: space-between; align-items: center; color: #fff; }
+  .brand h1 { margin: 0; font-size: 15px; font-weight: 900; }
+  .brand p { margin: 0; font-size: 8px; opacity: 0.9; }
+
+  .header-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; background: #f8fafc; padding: 8px 15px; border-bottom: 1px solid #e2e8f0; }
+  .input-card { background: #fff; padding: 4px 8px; border-radius: 4px; border: 1px solid #e2e8f0; border-left: 3px solid var(--green-800); }
+  .input-card label { display: block; font-size: 8px; font-weight: 900; color: var(--muted); margin-bottom: 1px; }
+  .input-card input, .input-card select { width: 100%; border: none; font-weight: 700; font-size: 10.5px; outline: none; background: transparent; padding: 0; }
+
+  .status-panel { display: grid; grid-template-columns: auto 1fr 1.5fr 1.5fr; gap: 10px; background: #fff; padding: 8px 15px; border-bottom: 1px solid #e2e8f0; align-items: flex-end; }
+  .status-item { display: flex; flex-direction: column; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 8px; background: #f8fafc; }
+  .status-item label { font-size: 8.5px; font-weight: 900; color: var(--green-900); margin-bottom: 4px; text-align: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px; }
+  .status-inputs { display: flex; gap: 5px; }
+  .input-col { display: flex; flex-direction: column; width: 100%; }
+  .input-col span { font-size: 7.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 2px; text-align: center; }
+  .status-inputs input { width: 100%; border: 1px solid #cbd5e1; border-radius: 2px; font-weight: 700; font-size: 10.5px; padding: 3px 5px; outline: none; text-align: center; background: #fff; }
+  
+  .semaforo-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; padding-bottom: 5px; }
+  .semaforo-wrap label { font-size: 9px; font-weight: 900; color: var(--green-900); }
+  .semaforo { display: flex; gap: 5px; background: #1f2937; padding: 5px 6px; border-radius: 12px; }
+  .led { width: 16px; height: 16px; border-radius: 50%; background: #4b5563; cursor: pointer; border: 1px solid #111827; }
+  .led.red.active { background: #ef4444 !important; box-shadow: 0 0 10px #ef4444; }
+  .led.yellow.active { background: #eab308 !important; box-shadow: 0 0 10px #eab308; }
+  .led.green.active { background: #22c55e !important; box-shadow: 0 0 10px #22c55e; }
+
+  .content { padding: 8px 15px; }
+  .btn{ border:1px solid #cbd5e1; border-radius:4px; background:var(--green-800); color:#fff; padding:4px 8px; font-weight:700; cursor:pointer; font-size: 9px; text-transform: uppercase; }
+  .btn.danger{ background:var(--danger); border-color:var(--danger) }
+  .btn.ghost{ background:#fff; color:var(--green-900); border-color:#cbd5e1 }
+  .btn.mini{ padding:2px 4px; font-size: 8.5px; }
+
+  .front{ display:grid; grid-template-columns: 36px 1fr; border:1.5px solid var(--grid); margin-bottom:8px; border-radius:2px; overflow:hidden; background: #fff; }
+  .front-aside{ background:var(--green-800); color:#fff; font-weight:900; writing-mode:vertical-rl; transform:rotate(180deg); text-align:center; display:flex; align-items:center; justify-content:center; font-size: 10px; }
+  .front-tools{ display:flex; gap:4px; padding:2px 6px; border-bottom:1px dashed #ccc; background:#f9fafb; }
+  
+  .front-head{ display:grid; grid-template-columns: 1.3fr 2fr 2fr 1.5fr; background:var(--green-800); border-bottom:1.5px solid var(--grid); color: #fff; }
+  .front-head > div{ padding:4px 2px; font-weight:900; border-right:1px solid var(--grid); text-align:center; font-size: 9px; }
+  
+  .front-cols{ display:grid; grid-template-columns: 1.3fr 2fr 2fr 1.5fr; }
+  .col{ border-right:1px solid var(--grid) }
+  
+  .line{ display:grid; grid-template-columns: 60px 1fr; align-items:center; border-bottom:1px solid var(--grid); min-height:28px }
+  .line .lab{ font-weight:900; padding:2px 4px; background:#f7faf7; border-right:1px solid var(--grid); font-size: 8.5px; height: 100%; display: flex; align-items: center; }
+  .line .val{ padding:4px 6px; font-weight: 700; text-transform: uppercase; font-size: 10px; outline: none; }
+  .line.strip .lab, .line.strip .val{ background:var(--shade) }
+  .col.centered .line { grid-template-columns: 1fr; }
+  .col.centered .val { text-align:center; }
+
+  .line.sep-row { border-bottom: 4px solid var(--sep-line) !important; }
+
+  .rota-wrap{ display:grid; grid-template-columns: 60px 1fr; border-top:1.2px solid var(--grid); min-height:28px; align-items: stretch; }
+  .rota-wrap .lab{ background:#f3f5f3; font-weight:900; border-right:1px solid var(--grid); padding:0 6px; font-size: 8.5px; display: flex; align-items: center; }
+  .rota-wrap [contenteditable]{ padding:4px 6px; outline: none; font-weight: 700; font-size: 10px; flex: 1; display: flex; align-items: center; text-transform: uppercase; }
+
+  .obs-container { margin: 10px 15px; border: 1.5px solid var(--grid); border-radius: 2px; background: #fff; }
+  .obs-header { background: var(--green-800); color: #fff; padding: 6px 8px; font-weight: 900; font-size: 9px; text-transform: uppercase; border-bottom: 1.5px solid var(--grid); }
+  .obs-body { padding: 8px; min-height: 100px; font-size: 10.5px; font-weight: 600; outline: none; text-transform: uppercase; white-space: pre-wrap; line-height: 1.4; }
+
+  .front.hide-first .row-0, .front.hide-first .row-1, .front.hide-first .row-2, .front.hide-first .rota1-row { display:none !important; }
+  .front.hide-second .row-3, .front.hide-second .row-4, .front.hide-second .row-5, .front.hide-second .rota2-row { display:none !important; }
+
+  dialog{ border-radius:6px; padding:10px; width: 280px; border: 1px solid #ccc; }
+  .form-row{ display:grid; grid-template-columns: 60px 1fr; gap:5px; margin:4px 0; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="header-main">
+    <div class="brand">
+        <h1>USINA SANTA ADÉLIA</h1>
+        <p>LOCALIZAÇÃO FRENTES • GESTÃO DE COLHEITA</p>
+    </div>
+    <div class="header-btns">
+      <button class="btn ghost" id="btn-add-frente" style="background:transparent; color:#fff; border-color:#fff">+ FRENTE</button>
+      <button class="btn danger" id="btn-limpar">LIMPAR TUDO</button>
+      <button class="btn" id="btn-pdf" style="background:#fff; color:var(--green-900)">PDF / IMPRIMIR</button>
+    </div>
+  </div>
+
+  <div class="header-grid">
+    <div class="input-card"><label>TURNO OPERACIONAL</label><select id="sel-turno"><option value="A">Turno A (07h - 15h)</option><option value="B">Turno B (15h - 23h)</option><option value="C" selected>Turno C (23h - 07h)</option></select></div>
+    <div class="input-card"><label>CONTROLADOR RESPONSÁVEL</label><input type="text" id="inp-controlador"></div>
+    <div class="input-card"><label>COORDENADOR DE TURNO</label><input type="text" id="inp-coordenador"></div>
+    <div class="input-card"><label>DATA DE REFERÊNCIA</label><input type="date" id="inp-data"></div>
+  </div>
+
+  <div class="status-panel">
+    <div class="semaforo-wrap"><label>STATUS</label><div class="semaforo"><div class="led red" onclick="setSemaforo('red')" id="led-red"></div><div class="led yellow" onclick="setSemaforo('yellow')" id="led-yellow"></div><div class="led green" onclick="setSemaforo('green')" id="led-green"></div></div></div>
+    <div class="status-item"><label>TC PÁTIO</label><div class="status-inputs"><div class="input-col"><input type="text" id="inp-ton-patio" placeholder="0 t"></div></div></div>
+    <div class="status-item"><label>MOAGEM P/HORA</label><div class="status-inputs"><div class="input-col"><span>Planejada</span><input type="text" id="inp-moa-plan" placeholder="0"></div><div class="input-col"><span>Realizada</span><input type="text" id="inp-moa-real" placeholder="0"></div></div></div>
+    <div class="status-item"><label>ENTREGA P/HORA</label><div class="status-inputs"><div class="input-col"><span>Planejada</span><input type="text" id="inp-ent-plan" placeholder="0"></div><div class="input-col"><span>Realizada</span><input type="text" id="inp-ent-real" placeholder="0"></div></div></div>
+  </div>
+
+  <div class="content" id="root"></div>
+
+  <div class="obs-container">
+    <div class="obs-header">Observações Gerais</div>
+    <div class="obs-body" contenteditable="true" id="obs-geral" oninput="saveObs(this.innerText)"></div>
+  </div>
+</div>
+
+<dialog id="dlg-setor">
+  <form id="form-setor" method="dialog">
+    <h4 style="margin:0 0 8px 0">Configurar</h4>
+    <input type="hidden" id="dlg-frente-idx"><input type="hidden" id="dlg-setor-idx">
+    <div class="form-row"><label>Setor:</label><input type="text" id="dlg-inp-setor"></div>
+    <div class="form-row"><label>Código:</label><input type="text" id="dlg-inp-codigo"></div>
+    <div class="form-row"><label>Ordem:</label><input type="text" id="dlg-inp-ordem"></div>
+    <div class="form-row"><label>Rota:</label><input type="text" id="dlg-inp-rota"></div>
+    <div style="display:flex; justify-content:flex-end; gap:5px; margin-top:8px">
+      <button class="btn ghost mini" type="button" onclick="document.getElementById('dlg-setor').close()">X</button>
+      <button class="btn mini" type="submit">OK</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const KEY = 'frentes_usa_vFinal';
+const SAMPLE = { 
+  turno:'C', data: new Date().toISOString().slice(0,10), controlador:'', coordenador:'', 
+  semaforo:'green', tonPatio:'', moaPlan:'', moaReal:'', entPlan:'', entReal:'',
+  frentes:[], obs:'' 
+};
+
+let STATE = JSON.parse(localStorage.getItem(KEY)) || SAMPLE;
+if(!STATE.frentes.length) { for(let i=1; i<=7; i++) STATE.frentes.push(blankFrente(`FRENTE 0${i}`)); }
+
+function blankFrente(n){ 
+  return { 
+    nome:n, autfaz:[{setor:'',codigo:'',ordem:''},{setor:'',codigo:'',ordem:''}], 
+    compart:['','','','','',''], troca:['','','','','',''], tipo:['','','','','',''], 
+    rota:'', rota2:'', hideFirst:false, hideSecond:false 
+  }; 
+}
+
+// SALVAMENTO GLOBAL
+function save(){ localStorage.setItem(KEY, JSON.stringify(STATE)); }
+function saveObs(v){ STATE.obs = v.toUpperCase(); save(); }
+
+function syncComPatio() {
+    const moagemShared = localStorage.getItem('shared_moagem');
+    const tcPatioShared = localStorage.getItem('shared_tcPatio');
+    if (moagemShared !== null) { document.getElementById('inp-moa-real').value = moagemShared; STATE.moaReal = moagemShared; }
+    if (tcPatioShared !== null) { document.getElementById('inp-ton-patio').value = tcPatioShared; STATE.tonPatio = tcPatioShared; }
+    save();
+}
+
+function setSemaforo(color) { STATE.semaforo = color; save(); updateSemaforoUI(); }
+
+function updateSemaforoUI() {
+  ['red', 'yellow', 'green'].forEach(c => document.getElementById(`led-${c}`).classList.remove('active'));
+  if(STATE.semaforo) document.getElementById(`led-${STATE.semaforo}`).classList.add('active');
+}
+
+function render(){
+  const root = document.getElementById('root');
+  if(!root) return;
+  root.innerHTML = '';
+  STATE.frentes.sort((a, b) => a.nome.localeCompare(b.nome, undefined, {numeric: true}));
+  STATE.frentes.forEach((fr, idx) => {
+    const block = document.createElement('div');
+    block.className = `front ${fr.hideFirst?'hide-first':''} ${fr.hideSecond?'hide-second':''}`;
+    block.innerHTML = `
+      <div class="front-aside"><span>${fr.nome.toUpperCase()}</span></div>
+      <div class="front-main">
+        <div class="front-tools">
+          <button class="btn mini ghost" onclick="openSetorDialog(${idx},0)">SETOR 1</button>
+          <button class="btn mini ghost" onclick="openSetorDialog(${idx},1)">SETOR 2</button>
+          <div style="flex:1"></div>
+          <button class="btn mini" style="background:#0b4f33" onclick="clearSetor(${idx},0)">LIMPAR 1</button>
+          <button class="btn mini" style="background:#0b4f33" onclick="clearSetor(${idx},1)">LIMPAR 2</button>
+          <button class="btn mini danger" onclick="removeFr(${idx})">REMOVER</button>
+        </div>
+        <div class="front-head"><div>AUT./FAZENDA</div><div>COMPARTIMENTO</div><div>TROCA</div><div>TIPO</div></div>
+        <div class="front-cols">
+          <div class="col">
+            ${l('SETOR:',fr.autfaz[0].setor,idx,'autfaz.0.setor','row-0')}
+            ${l('CÓDIGO:',fr.autfaz[0].codigo,idx,'autfaz.0.codigo','row-1')}
+            ${l('ORDEM:',fr.autfaz[0].ordem,idx,'autfaz.0.ordem','row-2', false, true)}
+            ${l('SETOR:',fr.autfaz[1].setor,idx,'autfaz.1.setor','row-3',true)}
+            ${l('CÓDIGO:',fr.autfaz[1].codigo,idx,'autfaz.1.codigo','row-4',true)}
+            ${l('ORDEM:',fr.autfaz[1].ordem,idx,'autfaz.1.ordem','row-5',true)}
+          </div>
+          <div class="col centered">
+            ${c(fr.compart[0],idx,`compart.0`,`row-0`)}
+            ${c(fr.compart[1],idx,`compart.1`,`row-1`)}
+            ${c(fr.compart[2],idx,`compart.2`,`row-2`, false, true)}
+            ${c(fr.compart[3],idx,`compart.3`,`row-3`, true)}
+            ${c(fr.compart[4],idx,`compart.4`,`row-4`, true)}
+            ${c(fr.compart[5],idx,`compart.5`,`row-5`, true)}
+          </div>
+          <div class="col centered">
+            ${c(fr.troca[0],idx,`troca.0`,`row-0`)}
+            ${c(fr.troca[1],idx,`troca.1`,`row-1`)}
+            ${c(fr.troca[2],idx,`troca.2`,`row-2`, false, true)}
+            ${c(fr.troca[3],idx,`troca.3`,`row-3`, true)}
+            ${c(fr.troca[4],idx,`troca.4`,`row-4`, true)}
+            ${c(fr.troca[5],idx,`troca.5`,`row-5`, true)}
+          </div>
+          <div class="col centered">
+            ${c(fr.tipo[0],idx,`tipo.0`,`row-0`)}
+            ${c(fr.tipo[1],idx,`tipo.1`,`row-1`)}
+            ${c(fr.tipo[2],idx,`tipo.2`,`row-2`, false, true)}
+            ${c(fr.tipo[3],idx,`tipo.3`,`row-3`, true)}
+            ${c(fr.tipo[4],idx,`tipo.4`,`row-4`, true)}
+            ${c(fr.tipo[5],idx,`tipo.5`,`row-5`, true)}
+          </div>
+        </div>
+        <div class="rota-wrap rota1-row"><div class="lab">ROTA :</div><div contenteditable="true" onblur="upd(${idx},'rota',this.innerText)">${fr.rota}</div></div>
+        <div class="rota-wrap rota2-row"><div class="lab">ROTA :</div><div contenteditable="true" onblur="upd(${idx},'rota2',this.innerText)">${fr.rota2}</div></div>
+      </div>`;
+    root.appendChild(block);
+  });
+}
+
+function l(lb,v,fi,p,cl,s,isSep){ return `<div class="line ${cl} ${s?'strip':''} ${isSep?'sep-row':''}"><div class="lab">${lb}</div><div class="val" contenteditable="true" onblur="upd(${fi},'${p}',this.innerText)">${v||''}</div></div>`; }
+function c(v,fi,p,cl,s,isSep){ return `<div class="line ${cl} ${s?'strip':''} ${isSep?'sep-row':''}"><div class="val" contenteditable="true" onblur="upd(${fi},'${p}',this.innerText)">${v||''}</div></div>`; }
+
+function upd(fi,p,v){ 
+  let parts=p.split('.'), t=STATE.frentes[fi]; 
+  for(let i=0;i<parts.length-1;i++) t=t[parts[i]]; 
+  t[parts[parts.length-1]]=v.trim().toUpperCase(); 
+  save(); 
+}
+
+function clearSetor(idx,w){
+  const fr=STATE.frentes[idx]; fr.autfaz[w]={setor:'',codigo:'',ordem:''};
+  if(w===0){fr.rota=''; fr.hideFirst=true;} else {fr.rota2=''; fr.hideSecond=true;}
+  save(); render(); 
+}
+
+function removeFr(i){ if(confirm("Excluir frente?")){ STATE.frentes.splice(i,1); save(); render(); } }
+
+function openSetorDialog(fi,si){
+  document.getElementById('dlg-frente-idx').value=fi; document.getElementById('dlg-setor-idx').value=si;
+  const af=STATE.frentes[fi].autfaz[si];
+  document.getElementById('dlg-inp-setor').value=af.setor; document.getElementById('dlg-inp-codigo').value=af.codigo;
+  document.getElementById('dlg-inp-ordem').value=af.ordem; document.getElementById('dlg-inp-rota').value=(si===0?STATE.frentes[fi].rota:STATE.frentes[fi].rota2);
+  document.getElementById('dlg-setor').showModal();
+}
+
+document.getElementById('form-setor').onsubmit=(e)=>{
+  e.preventDefault();
+  const fi=document.getElementById('dlg-frente-idx').value, si=document.getElementById('dlg-setor-idx').value, fr=STATE.frentes[fi];
+  fr.autfaz[si]={setor:document.getElementById('dlg-inp-setor').value.toUpperCase(), codigo:document.getElementById('dlg-inp-codigo').value.toUpperCase(), ordem:document.getElementById('dlg-inp-ordem').value.toUpperCase()};
+  if(si==0){fr.rota=document.getElementById('dlg-inp-rota').value.toUpperCase(); fr.hideFirst=false;} else {fr.rota2=document.getElementById('dlg-inp-rota').value.toUpperCase(); fr.hideSecond=false;}
+  save(); document.getElementById('dlg-setor').close(); render();
+};
+
+// Eventos de Input com salvamento imediato
+document.getElementById('sel-turno').onchange=e=>{STATE.turno=e.target.value; save();};
+document.getElementById('inp-data').onchange=e=>{STATE.data=e.target.value; save();};
+document.getElementById('inp-controlador').oninput=e=>{STATE.controlador=e.target.value; save();};
+document.getElementById('inp-coordenador').oninput=e=>{STATE.coordenador=e.target.value; save();};
+
+['tonPatio', 'moaPlan', 'moaReal', 'entPlan', 'entReal'].forEach(key => {
+  const mapId = { 'tonPatio':'inp-ton-patio', 'moaPlan':'inp-moa-plan', 'moaReal':'inp-moa-real', 'entPlan':'inp-ent-plan', 'entReal':'inp-ent-real' };
+  const el = document.getElementById(mapId[key]);
+  if(el){ 
+      el.value = STATE[key] || ''; 
+      el.oninput = e => { STATE[key] = e.target.value; save(); }; 
+  }
+});
+
+document.getElementById('btn-pdf').onclick=()=>{ window.print(); };
+document.getElementById('btn-add-frente').onclick=()=>{ const n=prompt("Nome da Frente:"); if(n) {STATE.frentes.push(blankFrente(n.toUpperCase())); save(); render();} };
+document.getElementById('btn-limpar').onclick=()=>{ if(confirm("Limpar tudo?")){localStorage.clear(); location.reload();} };
+
+window.addEventListener('storage', (e) => { if (e.key === 'shared_moagem' || e.key === 'shared_tcPatio') syncComPatio(); });
+
+/* INIT - CARREGA TUDO AO ABRIR */
+document.getElementById('sel-turno').value=STATE.turno;
+document.getElementById('inp-data').value=STATE.data;
+document.getElementById('inp-controlador').value=STATE.controlador || '';
+document.getElementById('inp-coordenador').value=STATE.coordenador || '';
+document.getElementById('obs-geral').innerText = STATE.obs || '';
+syncComPatio(); updateSemaforoUI(); render();
+</script>
+    <!-- Firebase App (the core Firebase SDK) is always required and must be listed first -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCnBug9V28EZG1NNzYjqShsYesjgewroPo",
+            authDomain: "torre-ctt-usa.firebaseapp.com",
+            projectId: "torre-ctt-usa",
+            storageBucket: "torre-ctt-usa.firebasestorage.app",
+            messagingSenderId: "655932765006",
+            appId: "1:655932765006:web:f2e239fb0a1b2f5867241f"
+        };
+
+        const app = initializeApp(firebaseConfig);
+    </script>
+</body>
+</html>

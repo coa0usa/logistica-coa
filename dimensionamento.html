@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Dimensionamento Diário de Caminhões – Durante o Dia</title>
+<style>
+  :root{
+    --g0:#032a1b; --g1:#0c3c27; --g2:#115536; --g3:#1e6a44; --g4:#267952;
+    --white:#ffffff; --lt:#e9f5ee; --grid:#cfd8d3; --yellow:#ffe08a; --orange:#ffcf7d;
+    --silver:#f3f4f6; --text:#0f172a;
+    --btn:#22c55e; --btn-hover:#16a34a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#f6faf7;font-family:Segoe UI, Roboto, Arial, Helvetica, sans-serif}
+  .wrap{max-width:1280px;margin:0 auto;padding:16px}
+  .title{
+    background:var(--g0); color:#fff; padding:10px 14px; border-radius:6px 6px 0 0;
+    text-align:center; font-weight:700; letter-spacing:.2px;
+  }
+  .sheet{border:2px solid var(--g0); border-top:none; border-radius:0 0 8px 8px; overflow:auto; background:#134831}
+  table{width:100%; min-width:1100px; border-collapse:collapse}
+  thead th{
+    position:sticky; top:0; z-index:2; background:var(--g1); color:#fff; border:1px solid #083221;
+    padding:8px 10px; font-size:13px; white-space:nowrap;
+  }
+  tbody th, tbody td{ border:1px solid #0b3a26; padding:6px 8px; font-size:13px; vertical-align:middle; color:#f1fff7; }
+  tbody th.label{ background:var(--g3); text-align:left; font-weight:600; }
+  .grp-green  td, .grp-green th.label  { background:var(--g2); }
+  .grp-silver td, .grp-silver th.label { background:#0f3f2b; }
+  .grp-yellow td, .grp-yellow th.label { background:#194b32; }
+  .row-orange td, .row-orange th.label { background:#805117; }
+  .row-total  td, .row-total  th.label { background:#17563b; font-weight:700 }
+  input.cell, select.cell{
+    width:100%; background:#fff; color:#111; padding:6px 6px; border:1px solid #cbd5e1; border-radius:4px;
+    text-align:right; font-size:13px;
+  }
+  input.cell[type="text"]{ text-align:left; }
+  input.cell:focus, select.cell:focus{outline:2px solid #22c55e; border-color:#16a34a}
+  .ro{ text-align:right; background:rgba(255,255,255,.06) }
+  .total-col{ background:#11422e; font-weight:700 }
+  .params{
+    display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+    background:#e8f7ef; border:1px dashed #6fbf95; padding:10px; border-radius:8px; color:#0f2e22; margin:14px 0 8px;
+  }
+  .params label{font-size:13px; font-weight:600}
+  .params input{ width:90px; padding:6px 8px; border:1px solid #9fbfae; border-radius:6px; text-align:right; }
+  .actions{ display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 18px; }
+  .btn{
+    background:var(--btn); color:#0b1120; border:1px solid rgba(255,255,255,0.16); border-radius:10px; padding:8px 12px;
+    font-weight:700; cursor:pointer; box-shadow:0 6px 16px rgba(34,197,94,0.25); transition:.15s ease;
+  }
+  .btn:hover{ background:var(--btn-hover); transform:translateY(-1px) }
+  .btn:active{ transform:translateY(0) }
+  .spacer td{
+    padding: 8px 0; background: linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.04));
+    border: none !important; height: 10px;
+  }
+  .note{color:#264; font-size:12px; margin-top:6px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">Dimensionamento Diário de Caminhões da Colheita – Durante o Dia</div>
+
+    <!-- Parâmetros globais -->
+    <div class="params">
+      <div><label>Horas por turno:</label> <input id="p_hTurno" type="number" step="0.1" value="8" class="cell" data-key="p_hTurno"></div>
+      <div><label>Turnos por dia:</label> <input id="p_turnos" type="number" step="1" value="3" class="cell" data-key="p_turnos"></div>
+    </div>
+
+    <!-- Ações -->
+    <div class="actions">
+      <button id="btn-export" class="btn">Exportar CSV</button>
+    </div>
+
+    <div class="sheet">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th style="min-width:240px;text-align:left">Frentes / Indicadores</th>
+            <th>F01<br><span style="font-weight:400">JB</span></th>
+            <th>F02<br><span style="font-weight:400">JB</span></th>
+            <th>F03<br><span style="font-weight:400">JB</span></th>
+            <th>F04<br><span style="font-weight:400">JB</span></th>
+            <th>F05<br><span style="font-weight:400">JB</span></th>
+            <th>F06<br><span style="font-weight:400">JB</span></th>
+            <th>F07<br><span style="font-weight:400">JB</span></th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+
+          <!-- Cabeçalho / Cotas -->
+          <tr class="grp-green">
+            <th class="label">Nº Colhedora Efetiva</th>
+            <td><input class="cell" data-key="colhedoras" data-col="1" value="3"></td>
+            <td><input class="cell" data-key="colhedoras" data-col="2"></td>
+            <td><input class="cell" data-key="colhedoras" data-col="3"></td>
+            <td><input class="cell" data-key="colhedoras" data-col="4"></td>
+            <td><input class="cell" data-key="colhedoras" data-col="5"></td>
+            <td><input class="cell" data-key="colhedoras" data-col="6"></td>
+            <td><input class="cell" data-key="colhedoras" data-col="7"></td>
+            <td class="ro total-col" data-out="colhedoras_sum"></td>
+          </tr>
+
+          <!-- Cota Diária -->
+          <tr class="grp-green">
+            <th class="label">Cota Diária (t/dia)</th>
+            <td><input class="cell" data-key="cotaDia" data-col="1" value="3100"></td>
+            <td><input class="cell" data-key="cotaDia" data-col="2"></td>
+            <td><input class="cell" data-key="cotaDia" data-col="3"></td>
+            <td><input class="cell" data-key="cotaDia" data-col="4"></td>
+            <td><input class="cell" data-key="cotaDia" data-col="5"></td>
+            <td><input class="cell" data-key="cotaDia" data-col="6"></td>
+            <td><input class="cell" data-key="cotaDia" data-col="7"></td>
+            <td class="ro total-col" data-out="cotaDia_sum"></td>
+          </tr>
+
+          <!-- Produtividade Colhedora (Cota ÷ Colhedoras) -->
+          <tr class="grp-green">
+            <th class="label">Produtividade Colhedora (t/dia)</th>
+            <td class="ro" data-formula="prodColhCalc" data-col="1"></td>
+            <td class="ro" data-formula="prodColhCalc" data-col="2"></td>
+            <td class="ro" data-formula="prodColhCalc" data-col="3"></td>
+            <td class="ro" data-formula="prodColhCalc" data-col="4"></td>
+            <td class="ro" data-formula="prodColhCalc" data-col="5"></td>
+            <td class="ro" data-formula="prodColhCalc" data-col="6"></td>
+            <td class="ro" data-formula="prodColhCalc" data-col="7"></td>
+            <td class="ro total-col" data-out="prodColh_sum"></td>
+          </tr>
+
+          <tr class="grp-green">
+            <th class="label">Cota Horária (24h) – Transporte (t/h)</th>
+            <td class="ro" data-formula="cotaHora24" data-col="1"></td>
+            <td class="ro" data-formula="cotaHora24" data-col="2"></td>
+            <td class="ro" data-formula="cotaHora24" data-col="3"></td>
+            <td class="ro" data-formula="cotaHora24" data-col="4"></td>
+            <td class="ro" data-formula="cotaHora24" data-col="5"></td>
+            <td class="ro" data-formula="cotaHora24" data-col="6"></td>
+            <td class="ro" data-formula="cotaHora24" data-col="7"></td>
+            <td class="ro total-col" data-out="cotaHora24_sum"></td>
+          </tr>
+
+          <!-- ESPAÇADOR 1: entre Cota Horária e Fazenda -->
+          <tr class="spacer"><td colspan="9"></td></tr>
+
+          <!-- Identificação -->
+          <tr class="grp-silver">
+            <th class="label">Fazenda</th>
+            <td><input class="cell" type="text" data-key="fazenda" data-col="1" placeholder=""></td>
+            <td><input class="cell" type="text" data-key="fazenda" data-col="2" placeholder=""></td>
+            <td><input class="cell" type="text" data-key="fazenda" data-col="3" placeholder=""></td>
+            <td><input class="cell" type="text" data-key="fazenda" data-col="4" placeholder=""></td>
+            <td><input class="cell" type="text" data-key="fazenda" data-col="5" placeholder=""></td>
+            <td><input class="cell" type="text" data-key="fazenda" data-col="6" placeholder=""></td>
+            <td><input class="cell" type="text" data-key="fazenda" data-col="7" placeholder=""></td>
+            <td class="total-col"></td>
+          </tr>
+
+          <!-- Dados de viagem -->
+          <tr class="grp-silver">
+            <th class="label">Raio (km)</th>
+            <td><input class="cell" data-key="raio" data-col="1" value="15"></td>
+            <td><input class="cell" data-key="raio" data-col="2" value="20"></td>
+            <td><input class="cell" data-key="raio" data-col="3" value="70"></td>
+            <td><input class="cell" data-key="raio" data-col="4" value="26.3"></td>
+            <td><input class="cell" data-key="raio" data-col="5" value="25"></td>
+            <td><input class="cell" data-key="raio" data-col="6" value="93"></td>
+            <td><input class="cell" data-key="raio" data-col="7" value="68"></td>
+            <td class="ro total-col" data-out="raio_avg"></td>
+          </tr>
+
+          <tr class="grp-silver">
+            <th class="label">Composição e carga</th>
+            <!-- Inclui opção em branco "-" -->
+            <td>
+              <select class="cell" data-key="comp" data-col="1">
+                <option value="">-</option><option>P</option><option selected>R</option><option>T</option>
+              </select>
+            </td>
+            <td>
+              <select class="cell" data-key="comp" data-col="2">
+                <option value="">-</option><option>P</option><option selected>R</option><option>T</option>
+              </select>
+            </td>
+            <td>
+              <select class="cell" data-key="comp" data-col="3">
+                <option value="">-</option><option>P</option><option selected>R</option><option>T</option>
+              </select>
+            </td>
+            <td>
+              <select class="cell" data-key="comp" data-col="4">
+                <option value="">-</option><option>P</option><option selected>R</option><option>T</option>
+              </select>
+            </td>
+            <td>
+              <select class="cell" data-key="comp" data-col="5">
+                <option value="">-</option><option>P</option><option>R</option><option selected>T</option>
+              </select>
+            </td>
+            <td>
+              <select class="cell" data-key="comp" data-col="6">
+                <option value="">-</option><option>P</option><option selected>R</option><option>T</option>
+              </select>
+            </td>
+            <td>
+              <select class="cell" data-key="comp" data-col="7">
+                <option value="">-</option><option>P</option><option selected>R</option><option>T</option>
+              </select>
+            </td>
+            <td class="total-col"></td>
+          </tr>
+
+          <tr class="grp-silver">
+            <th class="label">Nº Reboque</th>
+            <td><input class="cell" data-key="reboques" data-col="1" value="2"></td>
+            <td><input class="cell" data-key="reboques" data-col="2" value="3"></td>
+            <td><input class="cell" data-key="reboques" data-col="3" value="3"></td>
+            <td><input class="cell" data-key="reboques" data-col="4" value="3"></td>
+            <td><input class="cell" data-key="reboques" data-col="5" value="2"></td>
+            <td><input class="cell" data-key="reboques" data-col="6" value="3"></td>
+            <td><input class="cell" data-key="reboques" data-col="7" value="3"></td>
+            <td class="total-col"></td>
+          </tr>
+
+          <tr class="grp-silver">
+            <th class="label">Densidade por Reboque (t)</th>
+            <td><input class="cell" data-key="densReb" data-col="1" value="20"></td>
+            <td><input class="cell" data-key="densReb" data-col="2" value="33"></td>
+            <td><input class="cell" data-key="densReb" data-col="3" value="33"></td>
+            <td><input class="cell" data-key="densReb" data-col="4" value="33"></td>
+            <td><input class="cell" data-key="densReb" data-col="5" value="20"></td>
+            <td><input class="cell" data-key="densReb" data-col="6" value="33"></td>
+            <td><input class="cell" data-key="densReb" data-col="7" value="33"></td>
+            <td class="ro total-col" data-out="densReb_avg"></td>
+          </tr>
+
+          <tr class="grp-green">
+            <th class="label">Densidade por Viagem (t)</th>
+            <!-- = Nº reboques × densidade por reboque -->
+            <td class="ro" data-formula="capViagem" data-col="1"></td>
+            <td class="ro" data-formula="capViagem" data-col="2"></td>
+            <td class="ro" data-formula="capViagem" data-col="3"></td>
+            <td class="ro" data-formula="capViagem" data-col="4"></td>
+            <td class="ro" data-formula="capViagem" data-col="5"></td>
+            <td class="ro" data-formula="capViagem" data-col="6"></td>
+            <td class="ro" data-formula="capViagem" data-col="7"></td>
+            <td class="ro total-col" data-out="capViagem_avg"></td>
+          </tr>
+
+          <!-- ESPAÇADOR entre Densidade por Viagem e Velocidade Vazio -->
+          <tr class="spacer"><td colspan="9"></td></tr>
+
+          <tr class="grp-green">
+            <th class="label">Velocidade Vazio (km/h)</th>
+            <td><input class="cell" data-key="velVazio" data-col="1" value="48"></td>
+            <td><input class="cell" data-key="velVazio" data-col="2" value="60"></td>
+            <td><input class="cell" data-key="velVazio" data-col="3" value="60"></td>
+            <td><input class="cell" data-key="velVazio" data-col="4" value="60"></td>
+            <td><input class="cell" data-key="velVazio" data-col="5" value="60"></td>
+            <td><input class="cell" data-key="velVazio" data-col="6" value="60"></td>
+            <td><input class="cell" data-key="velVazio" data-col="7" value="66"></td>
+            <td class="total-col"></td>
+          </tr>
+
+          <tr class="grp-green">
+            <th class="label">Velocidade Carregado (km/h)</th>
+            <td><input class="cell" data-key="velCarregado" data-col="1" value="32"></td>
+            <td><input class="cell" data-key="velCarregado" data-col="2" value="40"></td>
+            <td><input class="cell" data-key="velCarregado" data-col="3" value="40"></td>
+            <td><input class="cell" data-key="velCarregado" data-col="4" value="40"></td>
+            <td><input class="cell" data-key="velCarregado" data-col="5" value="40"></td>
+            <td><input class="cell" data-key="velCarregado" data-col="6" value="40"></td>
+            <td><input class="cell" data-key="velCarregado" data-col="7" value="48"></td>
+            <td class="total-col"></td>
+          </tr>
+
+          <!-- ESPAÇADOR entre Velocidade Carregado e Tempo de Carga -->
+          <tr class="spacer"><td colspan="9"></td></tr>
+
+          <!-- Tempos -->
+          <tr class="grp-yellow">
+            <th class="label">Tempo de Carga (min.)</th>
+            <td><input class="cell" data-key="tCarga" data-col="1" value="40"></td>
+            <td><input class="cell" data-key="tCarga" data-col="2" value="25"></td>
+            <td><input class="cell" data-key="tCarga" data-col="3" value="25"></td>
+            <td><input class="cell" data-key="tCarga" data-col="4" value="25"></td>
+            <td><input class="cell" data-key="tCarga" data-col="5" value="25"></td>
+            <td><input class="cell" data-key="tCarga" data-col="6" value="25"></td>
+            <td><input class="cell" data-key="tCarga" data-col="7" value="40"></td>
+            <td class="total-col"></td>
+          </tr>
+
+          <tr class="grp-yellow">
+            <th class="label">Tempo de + Íona (min.)</th>
+            <td><input class="cell" data-key="tIona" data-col="1" value="25"></td>
+            <td><input class="cell" data-key="tIona" data-col="2" value="40"></td>
+            <td><input class="cell" data-key="tIona" data-col="3" value="40"></td>
+            <td><input class="cell" data-key="tIona" data-col="4" value="40"></td>
+            <td><input class="cell" data-key="tIona" data-col="5" value="40"></td>
+            <td><input class="cell" data-key="tIona" data-col="6" value="40"></td>
+            <td><input class="cell" data-key="tIona" data-col="7" value="25"></td>
+            <td class="total-col"></td>
+          </tr>
+
+          <tr class="grp-yellow">
+            <th class="label">Tempo de Descarga (min.)</th>
+            <td><input class="cell" data-key="tDesc" data-col="1" value="15"></td>
+            <td><input class="cell" data-key="tDesc" data-col="2" value="15"></td>
+            <td><input class="cell" data-key="tDesc" data-col="3" value="15"></td>
+            <td><input class="cell" data-key="tDesc" data-col="4" value="15"></td>
+            <td><input class="cell" data-key="tDesc" data-col="5" value="15"></td>
+            <td><input class="cell" data-key="tDesc" data-col="6" value="15"></td>
+            <td><input class="cell" data-key="tDesc" data-col="7" value="15"></td>
+            <td class="total-col"></td>
+          </tr>
+
+          <!-- Ida e Volta digitáveis -->
+          <tr class="grp-yellow">
+            <th class="label">Tempo de Ida (min.)</th>
+            <td><input class="cell" data-key="tIda" data-col="1" value=""></td>
+            <td><input class="cell" data-key="tIda" data-col="2" value=""></td>
+            <td><input class="cell" data-key="tIda" data-col="3" value=""></td>
+            <td><input class="cell" data-key="tIda" data-col="4" value=""></td>
+            <td><input class="cell" data-key="tIda" data-col="5" value=""></td>
+            <td><input class="cell" data-key="tIda" data-col="6" value=""></td>
+            <td><input class="cell" data-key="tIda" data-col="7" value=""></td>
+            <td class="total-col"></td>
+          </tr>
+
+          <tr class="grp-yellow">
+            <th class="label">Tempo de Volta (min.)</th>
+            <td><input class="cell" data-key="tVolta" data-col="1" value=""></td>
+            <td><input class="cell" data-key="tVolta" data-col="2" value=""></td>
+            <td><input class="cell" data-key="tVolta" data-col="3" value=""></td>
+            <td><input class="cell" data-key="tVolta" data-col="4" value=""></td>
+            <td><input class="cell" data-key="tVolta" data-col="5" value=""></td>
+            <td><input class="cell" data-key="tVolta" data-col="6" value=""></td>
+            <td><input class="cell" data-key="tVolta" data-col="7" value=""></td>
+            <td class="total-col"></td>
+          </tr>
+
+          <tr class="grp-yellow">
+            <th class="label">Tempo de Ciclo (h:mm)</th>
+            <!-- = Ida + Volta + Carga + +Íona + Descarga -->
+            <td class="ro" data-formula="tCiclo" data-col="1"></td>
+            <td class="ro" data-formula="tCiclo" data-col="2"></td>
+            <td class="ro" data-formula="tCiclo" data-col="3"></td>
+            <td class="ro" data-formula="tCiclo" data-col="4"></td>
+            <td class="ro" data-formula="tCiclo" data-col="5"></td>
+            <td class="ro" data-formula="tCiclo" data-col="6"></td>
+            <td class="ro" data-formula="tCiclo" data-col="7"></td>
+            <td class="total-col"></td>
+          </tr>
+
+          <!-- ESPAÇADOR entre Tempo de Ciclo e Parada por Processo -->
+          <tr class="spacer"><td colspan="9"></td></tr>
+
+          <!-- Disponibilidade -->
+          <tr class="grp-silver">
+            <th class="label">Parada por Processo (%)</th>
+            <td><input class="cell" data-key="parProc" data-col="1" value="5"></td>
+            <td><input class="cell" data-key="parProc" data-col="2" value="5"></td>
+            <td><input class="cell" data-key="parProc" data-col="3" value="5"></td>
+            <td><input class="cell" data-key="parProc" data-col="4" value="5"></td>
+            <td><input class="cell" data-key="parProc" data-col="5" value="5"></td>
+            <td><input class="cell" data-key="parProc" data-col="6" value="5"></td>
+            <td><input class="cell" data-key="parProc" data-col="7" value="5"></td>
+            <td class="total-col"></td>
+          </tr>
+
+          <tr class="grp-silver">
+            <th class="label">Indisponibilidade Mecânica (%)</th>
+            <td><input class="cell" data-key="indisp" data-col="1" value="5"></td>
+            <td><input class="cell" data-key="indisp" data-col="2" value="5"></td>
+            <td><input class="cell" data-key="indisp" data-col="3" value="5"></td>
+            <td><input class="cell" data-key="indisp" data-col="4" value="5"></td>
+            <td><input class="cell" data-key="indisp" data-col="5" value="5"></td>
+            <td><input class="cell" data-key="indisp" data-col="6" value="5"></td>
+            <td><input class="cell" data-key="indisp" data-col="7" value="5"></td>
+            <td class="total-col"></td>
+          </tr>
+
+          <tr class="grp-silver">
+            <th class="label">Horas Trabalhadas por Dia</th>
+            <td class="ro" data-formula="hDia" data-col="1"></td>
+            <td class="ro" data-formula="hDia" data-col="2"></td>
+            <td class="ro" data-formula="hDia" data-col="3"></td>
+            <td class="ro" data-formula="hDia" data-col="4"></td>
+            <td class="ro" data-formula="hDia" data-col="5"></td>
+            <td class="ro" data-formula="hDia" data-col="6"></td>
+            <td class="ro" data-formula="hDia" data-col="7"></td>
+            <td class="ro total-col" data-out="hDia_avg"></td>
+          </tr>
+
+          <!-- Viagens e necessidade -->
+          <tr class="grp-green">
+            <th class="label">Nº de Viagens por Dia</th>
+            <td class="ro" data-formula="viagensDia" data-col="1"></td>
+            <td class="ro" data-formula="viagensDia" data-col="2"></td>
+            <td class="ro" data-formula="viagensDia" data-col="3"></td>
+            <td class="ro" data-formula="viagensDia" data-col="4"></td>
+            <td class="ro" data-formula="viagensDia" data-col="5"></td>
+            <td class="ro" data-formula="viagensDia" data-col="6"></td>
+            <td class="ro" data-formula="viagensDia" data-col="7"></td>
+            <td class="ro total-col" data-out="viagensDia_sum"></td>
+          </tr>
+
+          <tr class="row-orange">
+            <th class="label">Necessidade de Caminhões</th>
+            <td class="ro" data-formula="necCaminhoes" data-col="1"></td>
+            <td class="ro" data-formula="necCaminhoes" data-col="2"></td>
+            <td class="ro" data-formula="necCaminhoes" data-col="3"></td>
+            <td class="ro" data-formula="necCaminhoes" data-col="4"></td>
+            <td class="ro" data-formula="necCaminhoes" data-col="5"></td>
+            <td class="ro" data-formula="necCaminhoes" data-col="6"></td>
+            <td class="ro" data-formula="necCaminhoes" data-col="7"></td>
+            <td class="ro total-col" data-out="necCaminhoes_sum"></td>
+          </tr>
+
+          <!-- Resultados operacionais -->
+          <tr class="row-total">
+            <th class="label">Nº Real de Caminhões</th>
+            <td><input class="cell" data-key="realCams" data-col="1" value="4"></td>
+            <td><input class="cell" data-key="realCams" data-col="2" value=""></td>
+            <td><input class="cell" data-key="realCams" data-col="3" value=""></td>
+            <td><input class="cell" data-key="realCams" data-col="4" value=""></td>
+            <td><input class="cell" data-key="realCams" data-col="5" value=""></td>
+            <td><input class="cell" data-key="realCams" data-col="6" value=""></td>
+            <td><input class="cell" data-key="realCams" data-col="7" value=""></td>
+            <td class="ro total-col" data-out="realCams_sum"></td>
+          </tr>
+
+          <tr class="grp-green">
+            <th class="label">Nº Total de Viagens por Dia</th>
+            <td class="ro" data-formula="totalViagensCol" data-col="1"></td>
+            <td class="ro" data-formula="totalViagensCol" data-col="2"></td>
+            <td class="ro" data-formula="totalViagensCol" data-col="3"></td>
+            <td class="ro" data-formula="totalViagensCol" data-col="4"></td>
+            <td class="ro" data-formula="totalViagensCol" data-col="5"></td>
+            <td class="ro" data-formula="totalViagensCol" data-col="6"></td>
+            <td class="ro" data-formula="totalViagensCol" data-col="7"></td>
+            <td class="ro total-col" data-out="viagensDia_sum_dup"></td>
+          </tr>
+
+          <tr class="grp-green">
+            <th class="label">Nº Viagens por Turno</th>
+            <td class="ro" data-formula="viagensTurno" data-col="1"></td>
+            <td class="ro" data-formula="viagensTurno" data-col="2"></td>
+            <td class="ro" data-formula="viagensTurno" data-col="3"></td>
+            <td class="ro" data-formula="viagensTurno" data-col="4"></td>
+            <td class="ro" data-formula="viagensTurno" data-col="5"></td>
+            <td class="ro" data-formula="viagensTurno" data-col="6"></td>
+            <td class="ro" data-formula="viagensTurno" data-col="7"></td>
+            <td class="ro total-col" data-out="viagensTurno_sum"></td>
+          </tr>
+
+          <tr class="grp-green">
+            <th class="label">Produt. Caminhões por Hora (t/h)</th>
+            <td class="ro" data-formula="prodCamH" data-col="1"></td>
+            <td class="ro" data-formula="prodCamH" data-col="2"></td>
+            <td class="ro" data-formula="prodCamH" data-col="3"></td>
+            <td class="ro" data-formula="prodCamH" data-col="4"></td>
+            <td class="ro" data-formula="prodCamH" data-col="5"></td>
+            <td class="ro" data-formula="prodCamH" data-col="6"></td>
+            <td class="ro" data-formula="prodCamH" data-col="7"></td>
+            <td class="ro total-col" data-out="prodCamH_sum"></td>
+          </tr>
+
+          <tr class="grp-green">
+            <th class="label">Produt. Caminhões por Dia (t/d)</th>
+            <td class="ro" data-formula="prodCamD" data-col="1"></td>
+            <td class="ro" data-formula="prodCamD" data-col="2"></td>
+            <td class="ro" data-formula="prodCamD" data-col="3"></td>
+            <td class="ro" data-formula="prodCamD" data-col="4"></td>
+            <td class="ro" data-formula="prodCamD" data-col="5"></td>
+            <td class="ro" data-formula="prodCamD" data-col="6"></td>
+            <td class="ro" data-formula="prodCamD" data-col="7"></td>
+            <td class="ro total-col" data-out="prodCamD_sum"></td>
+          </tr>
+
+          <tr class="grp-green">
+            <th class="label">Intervalo de Despacho (min.)</th>
+            <td class="ro" data-formula="intervaloDespacho" data-col="1"></td>
+            <td class="ro" data-formula="intervaloDespacho" data-col="2"></td>
+            <td class="ro" data-formula="intervaloDespacho" data-col="3"></td>
+            <td class="ro" data-formula="intervaloDespacho" data-col="4"></td>
+            <td class="ro" data-formula="intervaloDespacho" data-col="5"></td>
+            <td class="ro" data-formula="intervaloDespacho" data-col="6"></td>
+            <td class="ro" data-formula="intervaloDespacho" data-col="7"></td>
+            <td class="ro total-col" data-out="intervalo_avg"></td>
+          </tr>
+
+          <tr class="row-total">
+            <th class="label">Raio Médio (km)</th>
+            <td class="ro" data-formula="raioEcho" data-col="1"></td>
+            <td class="ro" data-formula="raioEcho" data-col="2"></td>
+            <td class="ro" data-formula="raioEcho" data-col="3"></td>
+            <td class="ro" data-formula="raioEcho" data-col="4"></td>
+            <td class="ro" data-formula="raioEcho" data-col="5"></td>
+            <td class="ro" data-formula="raioEcho" data-col="6"></td>
+            <td class="ro" data-formula="raioEcho" data-col="7"></td>
+            <td class="ro total-col" data-out="raio_avg_dup"></td>
+          </tr>
+
+          <tr class="row-total">
+            <th class="label">Produtividade (t/h)</th>
+            <td colspan="7"></td>
+            <td class="ro total-col" data-out="prodTh_final"></td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      • As células <b>em branco</b> são editáveis. As demais são calculadas automaticamente.<br>
+      • “Tempo de Ida” e “Tempo de Volta” são digitáveis. “Tempo de Ciclo” exibe em <b>h:mm</b>.<br>
+      • Se <b>Cota Diária</b> estiver <b>em branco</b> em uma frente, <b>zeramos resultados</b> e <b>apagamos inputs abaixo</b> (regra rígida).<br>
+      • Salva automaticamente no navegador (LocalStorage). Botão: <b>Exportar CSV</b>.
+    </div>
+  </div>
+
+<script>
+/* ----------------- Utilitários ----------------- */
+function toNum(v){
+  if(v===undefined || v===null) return NaN;
+  if(typeof v === 'number') return v;
+  const s = String(v).trim().replace(/\./g,'').replace(',', '.');
+  const n = parseFloat(s);
+  return isNaN(n) ? NaN : n;
+}
+function fmt(n, dec=2){
+  if(!isFinite(n)) return '';
+  return n.toLocaleString('pt-BR',{minimumFractionDigits:dec, maximumFractionDigits:dec});
+}
+function sum(arr){ const f = arr.filter(x=>isFinite(x)); return f.reduce((a,b)=>a+b,0); }
+function avg(arr){ const f = arr.filter(x=>isFinite(x)); return f.length? (sum(f)/f.length): NaN; }
+// "155" -> "2:35"
+function fmtHM(mins){
+  if(!isFinite(mins)) return '';
+  const total = Math.round(mins); const h = Math.floor(total / 60); const m = total % 60;
+  return `${h}:${String(m).padStart(2,'0')}`;
+}
+
+const COLS = [1,2,3,4,5,6,7];
+
+function getEl(key, col){
+  return document.querySelector(`[data-key="${key}"][data-col="${col}"]`);
+}
+function getVal(key, col){
+  const el = getEl(key, col); if(!el) return NaN; return toNum(el.value);
+}
+
+/* ====== Salvamento automático (LocalStorage) ====== */
+const LS_KEY = 'dimens_caminhoes_v3';
+
+function saveAll() {
+  const data = {};
+  document.querySelectorAll('.cell').forEach(el => {
+    const k = el.getAttribute('data-key') || el.id || '';
+    const c = el.getAttribute('data-col') || '_';
+    const id = `${k}:${c}`;
+    data[id] = el.value;
+  });
+  localStorage.setItem(LS_KEY, JSON.stringify(data));
+}
+function loadAll() {
+  const raw = localStorage.getItem(LS_KEY);
+  if(!raw) return;
+  let data=null; try { data = JSON.parse(raw); } catch(e){ return; }
+  Object.entries(data).forEach(([id, val]) => {
+    const [k, c] = id.split(':');
+    let sel;
+    if(c === '_'){
+      sel = document.querySelector(`.cell[data-key="${k}"], .cell#${k}`);
+    }else{
+      sel = document.querySelector(`.cell[data-key="${k}"][data-col="${c}"]`);
+    }
+    if(sel != null) sel.value = val;
+  });
+}
+
+/* ====== Vínculo automático: Composição (P/R/T) -> Nº Reboque + Densidade ====== */
+const COMP_MAP = {
+  "R": { reboques: 2, densReb: 33 },
+  "T": { reboques: 3, densReb: 20 },
+  "P": { reboques: 5, densReb: 20 }
+};
+
+/* Aplica mapeamento SEMPRE que houver P/R/T (não aplica se valor for "-") */
+function applyCompForCol(col){
+  const sel = getEl('comp', col);
+  if(!sel) return;
+
+  const comp = (sel.value || '').trim().toUpperCase();
+  if(!comp || !COMP_MAP[comp]) return; // não altera quando for "-"
+
+  const reb  = getEl('reboques', col);
+  const dens = getEl('densReb',  col);
+  if(reb)  reb.value  = COMP_MAP[comp].reboques;
+  if(dens) dens.value = COMP_MAP[comp].densReb;
+}
+
+/* ====== Regra RÍGIDA: limpar inputs abaixo da Cota (quando em branco) ====== */
+const INPUTS_ABAIXO = [
+  'fazenda','raio','comp','reboques','densReb',
+  'velVazio','velCarregado',
+  'tCarga','tIona','tDesc','tIda','tVolta',
+  'realCams'
+];
+function clearInputsBelowIfCotaBlank(col, isBlank){
+  if(!isBlank) return;
+  INPUTS_ABAIXO.forEach(k=>{
+    const el = getEl(k, col);
+    if(!el) return;
+    if(el.tagName === 'SELECT'){
+      el.value = ''; // opção “-”
+    }else{
+      el.value = '';
+    }
+  });
+}
+
+/* ====== Recalcular ====== */
+function recalc(){
+  const p_hTurno = toNum(document.getElementById('p_hTurno').value) || 8;
+  const p_turnos = toNum(document.getElementById('p_turnos').value) || 3;
+
+  const cotaDia={}, prodColhCalc={}, cotaHora24={}, capViagem={}, tIda={}, tVolta={}, tCiclo={}, hDia={}, viagensDia={}, viagensHora={},
+        necCaminhoes={}, prodCamH={}, prodCamD={}, intervaloDespacho={};
+
+  COLS.forEach(c=>{
+    const colhed   = getVal('colhedoras',c);
+    const cotaD    = getVal('cotaDia',c);
+    const rebs     = getVal('reboques',c);
+    const dens     = getVal('densReb',c);
+    const tC       = getVal('tCarga',c);
+    const tI       = getVal('tIona',c);
+    const tD       = getVal('tDesc',c);
+    const tIInput  = getVal('tIda',c);
+    const tVInput  = getVal('tVolta',c);
+    const pp       = (getVal('parProc',c)||0)/100;
+    const im       = (getVal('indisp',c)||0)/100;
+    const realCams = getVal('realCams',c);
+
+    const cotaBlank = !isFinite(cotaD); // se Cota está vazia (NaN), aplicar regra rígida
+
+    // 1) Se cota em branco, limpar inputs abaixo
+    clearInputsBelowIfCotaBlank(c, cotaBlank);
+
+    // 2) Releia valores após possível limpeza
+    const _rebs     = getVal('reboques',c);
+    const _dens     = getVal('densReb',c);
+    const _tC       = getVal('tCarga',c);
+    const _tI       = getVal('tIona',c);
+    const _tD       = getVal('tDesc',c);
+    const _tIInput  = getVal('tIda',c);
+    const _tVInput  = getVal('tVolta',c);
+    const _realCams = getVal('realCams',c);
+
+    // Cota diária
+    cotaDia[c]     = isFinite(cotaD) ? cotaD : NaN;
+
+    // Capacidade por viagem
+    capViagem[c]   = (isFinite(_rebs) && isFinite(_dens)) ? (_rebs * _dens) : NaN;
+
+    // Tempos
+    tIda[c]   = isFinite(_tIInput) ? _tIInput : NaN;
+    tVolta[c] = isFinite(_tVInput) ? _tVInput : NaN;
+
+    // Ciclo total (min)
+    const cicloMin = [tIda[c], tVolta[c], _tC, _tI, _tD].reduce((a,b)=>a + (isFinite(b)?b:0), 0);
+    tCiclo[c] = cicloMin;
+
+    // Horas trabalhadas
+    hDia[c] = (p_hTurno * p_turnos) * (1 - (isFinite(pp)?pp:0)) * (1 - (isFinite(im)?im:0));
+
+    // Produtividade Colhedora
+    prodColhCalc[c] = (isFinite(cotaDia[c]) && isFinite(colhed) && colhed>0) ? (cotaDia[c] / colhed) : NaN;
+
+    // Cota Horária
+    cotaHora24[c]  = isFinite(cotaDia[c]) ? (cotaDia[c] / 24) : NaN;
+
+    // Viagens
+    viagensHora[c] = (isFinite(tCiclo[c]) && tCiclo[c]>0) ? (60 / tCiclo[c]) : NaN;
+    viagensDia[c]  = (isFinite(hDia[c]) && isFinite(viagensHora[c])) ? (hDia[c] * viagensHora[c]) : NaN;
+
+    // Necessidade
+    const entregPorCamHora = (isFinite(capViagem[c]) && isFinite(viagensHora[c])) ? (capViagem[c] * viagensHora[c]) : NaN;
+    necCaminhoes[c] = (isFinite(cotaHora24[c]) && isFinite(entregPorCamHora) && entregPorCamHora>0) ? (cotaHora24[c] / entregPorCamHora) : NaN;
+
+    // Produtividade caminhões
+    if(isFinite(_realCams) && _realCams>0 && isFinite(entregPorCamHora) && isFinite(hDia[c])){
+      prodCamH[c] = entregPorCamHora * _realCams;   // t/h
+      prodCamD[c] = prodCamH[c] * hDia[c];         // t/d
+    }else{
+      prodCamH[c] = NaN; prodCamD[c] = NaN;
+    }
+
+    // Intervalo de despacho
+    intervaloDespacho[c] = (isFinite(tCiclo[c]) && isFinite(_realCams) && _realCams>0) ? (tCiclo[c] / _realCams) : NaN;
+
+    // 3) Se cota em branco: zerar resultados para exibição
+    if(cotaBlank){
+      prodColhCalc[c]     = 0;
+      cotaHora24[c]       = 0;
+      capViagem[c]        = 0;
+      tCiclo[c]           = 0;
+      hDia[c]             = 0;
+      viagensHora[c]      = 0;
+      viagensDia[c]       = 0;
+      necCaminhoes[c]     = 0;
+      prodCamH[c]         = 0;
+      prodCamD[c]         = 0;
+      intervaloDespacho[c]= 0;
+    }
+  });
+
+  // Escrita nas células
+  function setCells(selector, map, dec=2){
+    document.querySelectorAll(selector).forEach(td=>{
+      const col = Number(td.getAttribute('data-col'));
+      td.textContent = fmt(map[col], dec);
+    });
+  }
+
+  setCells('[data-formula="prodColhCalc"]', prodColhCalc, 0);
+  setCells('[data-formula="cotaHora24"]',  cotaHora24,  0);
+  setCells('[data-formula="capViagem"]',   capViagem,   0);
+  document.querySelectorAll('[data-formula="tCiclo"]').forEach(td=>{
+    const col = Number(td.getAttribute('data-col'));
+    td.textContent = fmtHM(tCiclo[col]);
+  });
+  setCells('[data-formula="hDia"]',         hDia,            1);
+  setCells('[data-formula="viagensDia"]',   viagensDia,      1);
+  setCells('[data-formula="necCaminhoes"]', necCaminhoes,    2);
+  setCells('[data-formula="prodCamH"]',     prodCamH,        1);
+  setCells('[data-formula="prodCamD"]',     prodCamD,        0);
+  setCells('[data-formula="intervaloDespacho"]', intervaloDespacho, 1);
+  setCells('[data-formula="viagensTurno"]',
+    Object.fromEntries(COLS.map(c=>{
+      const ht = (isFinite(hDia[c]) && hDia[c]>0 && (toNum(document.getElementById('p_hTurno').value)||0)>0)
+                 ? (hDia[c]/toNum(document.getElementById('p_hTurno').value)) : NaN;
+      const div = (isFinite(ht) && ht>0 && isFinite(viagensDia[c])) ? (viagensDia[c]/ht) : (isFinite(hDia[c]) && hDia[c]===0 ? 0 : NaN);
+      return [c, div];
+    })), 1);
+  setCells('[data-formula="totalViagensCol"]', viagensDia, 1);
+  setCells('[data-formula="raioEcho"]', Object.fromEntries(COLS.map(c=>[c, getVal('raio',c)])), 1);
+
+  // Totais
+  const v = (k)=>COLS.map(c=>toNum(document.querySelector(`[data-key="${k}"][data-col="${c}"]`)?.value));
+  document.querySelector('[data-out="colhedoras_sum"]').textContent     = fmt(sum(v('colhedoras')),0);
+  document.querySelector('[data-out="prodColh_sum"]').textContent       = fmt(sum(Object.values(prodColhCalc)),0);
+  document.querySelector('[data-out="cotaDia_sum"]').textContent        = fmt(sum(Object.values(cotaDia)),0);
+  document.querySelector('[data-out="cotaHora24_sum"]').textContent     = fmt(sum(Object.values(cotaHora24)),0);
+  document.querySelector('[data-out="raio_avg"]').textContent           = fmt(avg(v('raio')),1);
+  document.querySelector('[data-out="densReb_avg"]').textContent        = fmt(avg(v('densReb')),1);
+  document.querySelector('[data-out="capViagem_avg"]').textContent      = fmt(avg(Object.values(capViagem)),0);
+  document.querySelector('[data-out="hDia_avg"]').textContent           = fmt(avg(Object.values(hDia)),1);
+  document.querySelector('[data-out="viagensDia_sum"]').textContent     = fmt(sum(Object.values(viagensDia)),1);
+  document.querySelector('[data-out="viagensDia_sum_dup"]').textContent = fmt(sum(Object.values(viagensDia)),1);
+  document.querySelector('[data-out="viagensTurno_sum"]').textContent   = (()=>{
+     const arr = COLS.map(c=>{
+       const ht = (isFinite(hDia[c]) && (toNum(document.getElementById('p_hTurno').value)||0)>0)
+                  ? (hDia[c]/toNum(document.getElementById('p_hTurno').value)) : NaN;
+       return (isFinite(ht) && ht>0 && isFinite(viagensDia[c])) ? (viagensDia[c]/ht) : (isFinite(hDia[c]) && hDia[c]===0 ? 0 : NaN);
+     });
+     return fmt(sum(arr.filter(x=>isFinite(x))),1);
+  })();
+  document.querySelector('[data-out="necCaminhoes_sum"]').textContent   = fmt(sum(Object.values(necCaminhoes)),2);
+  document.querySelector('[data-out="realCams_sum"]').textContent       = fmt(sum(v('realCams')),0);
+  document.querySelector('[data-out="prodCamH_sum"]').textContent       = fmt(sum(Object.values(prodCamH)),1);
+  document.querySelector('[data-out="prodCamD_sum"]').textContent       = fmt(sum(Object.values(prodCamD)),0);
+
+  // Intervalo médio (min)
+  document.querySelector('[data-out="intervalo_avg"]').textContent      = (()=>{
+     const arr = COLS.map(c=> intervaloDespacho[c]).filter(x=>isFinite(x));
+     return fmt(arr.length? (sum(arr)/arr.length): NaN, 1);
+  })();
+
+  // Rodapé
+  const totalCota = sum(Object.values(cotaDia));
+  const totalProdD= sum(Object.values(prodCamD));
+  document.querySelector('[data-out="moagem_proj_text"]').textContent = 'Igual à soma das cotas diárias informadas por frente';
+  document.querySelector('[data-out="cotaDia_sum_dup"]').textContent  = fmt(totalCota, 0);
+  document.querySelector('[data-out="dif_cota"]').textContent         = fmt(totalProdD - totalCota, 0);
+  document.querySelector('[data-out="raio_avg_dup"]').textContent     = fmt(avg(v('raio')),1);
+  document.querySelector('[data-out="prodTh_final"]').textContent     = fmt((isFinite(totalCota)? totalCota/24 : NaN), 1);
+}
+
+/* Eventos de input: salvar e recalcular */
+document.addEventListener('input', (e)=>{
+  if(e.target.classList.contains('cell')){
+    saveAll();
+    recalc();
+  }
+});
+
+/* Inicialização */
+document.addEventListener('DOMContentLoaded', ()=>{
+  loadAll();                 // carrega dados salvos
+  // Aplica mapeamento de composição já na carga (R/T/P -> reboques/dens)
+  COLS.forEach(c=> applyCompForCol(c));
+
+  // Listener: sempre que trocar composição, aplica mapeamento
+  document.querySelectorAll('[data-key="comp"]').forEach(sel=>{
+    sel.addEventListener('change', (e)=>{
+      const col = e.target.getAttribute('data-col');
+      applyCompForCol(col);
+      saveAll();
+      recalc();
+    });
+  });
+
+  // Botão: Exportar CSV
+  document.getElementById('btn-export').addEventListener('click', ()=>{
+    const campos = [
+      { rot:'Nº Colhedora Efetiva', key:'colhedoras', inpt:true },
+      { rot:'Cota Diária (t/dia)', key:'cotaDia', inpt:true },
+      { rot:'Produtividade Colhedora (t/dia)', calc: (c)=>document.querySelector(`[data-formula="prodColhCalc"][data-col="${c}"]`)?.textContent },
+      { rot:'Cota Horária (t/h)', calc:(c)=>document.querySelector(`[data-formula="cotaHora24"][data-col="${c}"]`)?.textContent },
+      { rot:'Fazenda', key:'fazenda', inpt:true },
+      { rot:'Raio (km)', key:'raio', inpt:true },
+      { rot:'Composição', key:'comp', inpt:true },
+      { rot:'Nº Reboque', key:'reboques', inpt:true },
+      { rot:'Densidade por Reboque (t)', key:'densReb', inpt:true },
+      { rot:'Densidade por Viagem (t)', calc:(c)=>document.querySelector(`[data-formula="capViagem"][data-col="${c}"]`)?.textContent },
+      { rot:'Velocidade Vazio (km/h)', key:'velVazio', inpt:true },
+      { rot:'Velocidade Carregado (km/h)', key:'velCarregado', inpt:true },
+      { rot:'Tempo de Carga (min.)', key:'tCarga', inpt:true },
+      { rot:'Tempo de + Íona (min.)', key:'tIona', inpt:true },
+      { rot:'Tempo de Descarga (min.)', key:'tDesc', inpt:true },
+      { rot:'Tempo de Ida (min.)', key:'tIda', inpt:true },
+      { rot:'Tempo de Volta (min.)', key:'tVolta', inpt:true },
+      { rot:'Tempo de Ciclo (h:mm)', calc:(c)=>document.querySelector(`[data-formula="tCiclo"][data-col="${c}"]`)?.textContent },
+      { rot:'Parada por Processo (%)', key:'parProc', inpt:true },
+      { rot:'Indisponibilidade Mecânica (%)', key:'indisp', inpt:true },
+      { rot:'Horas Trabalhadas por Dia', calc:(c)=>document.querySelector(`[data-formula="hDia"][data-col="${c}"]`)?.textContent },
+      { rot:'Nº Viagens por Dia', calc:(c)=>document.querySelector(`[data-formula="viagensDia"][data-col="${c}"]`)?.textContent },
+      { rot:'Necessidade de Caminhões', calc:(c)=>document.querySelector(`[data-formula="necCaminhoes"][data-col="${c}"]`)?.textContent },
+      { rot:'Nº Real de Caminhões', key:'realCams', inpt:true },
+      { rot:'Nº Viagens por Turno', calc:(c)=>document.querySelector(`[data-formula="viagensTurno"][data-col="${c}"]`)?.textContent },
+      { rot:'Produt. Caminhões por Hora (t/h)', calc:(c)=>document.querySelector(`[data-formula="prodCamH"][data-col="${c}"]`)?.textContent },
+      { rot:'Produt. Caminhões por Dia (t/d)', calc:(c)=>document.querySelector(`[data-formula="prodCamD"][data-col="${c}"]`)?.textContent },
+      { rot:'Intervalo de Despacho (min.)', calc:(c)=>document.querySelector(`[data-formula="intervaloDespacho"][data-col="${c}"]`)?.textContent },
+    ];
+
+    const headers = ['Campo','F01','F02','F03','F04','F05','F06','F07','Total'];
+    const lines = [headers.join(';')];
+
+    function getTotalForRow(rot){
+      const map = {
+        'Cota Diária (t/dia)':'cotaDia_sum',
+        'Cota Horária (t/h)':'cotaHora24_sum',
+        'Raio (km)':'raio_avg',
+        'Densidade por Reboque (t)':'densReb_avg',
+        'Densidade por Viagem (t)':'capViagem_avg',
+        'Horas Trabalhadas por Dia':'hDia_avg',
+        'Nº Viagens por Dia':'viagensDia_sum',
+        'Nº Total de Viagens por Dia':'viagensDia_sum_dup',
+        'Nº Viagens por Turno':'viagensTurno_sum',
+        'Necessidade de Caminhões':'necCaminhoes_sum',
+        'Nº Real de Caminhões':'realCams_sum',
+        'Produt. Caminhões por Hora (t/h)':'prodCamH_sum',
+        'Produt. Caminhões por Dia (t/d)':'prodCamD_sum',
+        'Intervalo de Despacho (min.)':'intervalo_avg'
+      };
+      const key = map[rot];
+      if(!key) return '';
+      const el = document.querySelector(`[data-out="${key}"]`);
+      return el ? el.textContent : '';
+    }
+
+    campos.forEach(row=>{
+      const vals = COLS.map(c=>{
+        if(row.inpt){
+          const el = getEl(row.key, c);
+          return el ? el.value : '';
+        }else if(typeof row.calc === 'function'){
+          return row.calc(c) || '';
+        }else{
+          return '';
+        }
+      });
+      const total = getTotalForRow(row.rot);
+      lines.push([row.rot, ...vals, total].join(';'));
+    });
+
+    const resumo = [
+      ['Moagem Projetada (t/dia)', '', '', '', '', '', '', '', document.querySelector('[data-out="cotaDia_sum_dup"]')?.textContent || ''],
+      ['Diferença da Cota (t)',    '', '', '', '', '', '', '', document.querySelector('[data-out="dif_cota"]')?.textContent || ''],
+      ['Raio Médio (km)',          '', '', '', '', '', '', '', document.querySelector('[data-out="raio_avg_dup"]')?.textContent || ''],
+      ['Produtividade (t/h)',      '', '', '', '', '', '', '', document.querySelector('[data-out="prodTh_final"]')?.textContent || '']
+    ];
+    resumo.forEach(r=>lines.push(r.join(';')));
+
+    const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const hoje = new Date();
+    const pad2 = (n)=>String(n).padStart(2,'0');
+    const nome = `dimensionamento_${hoje.getFullYear()}-${pad2(hoje.getMonth()+1)}-${pad2(hoje.getDate())}_${pad2(hoje.getHours())}${pad2(hoje.getMinutes())}.csv`;
+    a.href = url; a.download = nome; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  // Primeiro cálculo
+  recalc();
+});
+</script>
+</body>
+</html>

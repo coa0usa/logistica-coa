@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Produção de Vinhaça - Editável</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary-green: #1b4d3e;
+            --light-green: #eef5f2;
+            --accent-green: #2ecc71;
+            --bg-body: #f0f2f5;
+            --white: #ffffff;
+            --text-main: #333;
+            --border-color: #eaedef;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-body);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            color: var(--text-main);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 650px;
+            background: var(--white);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+            border: 1px solid #ddd;
+        }
+
+        .header {
+            background-color: var(--primary-green);
+            color: var(--white);
+            text-align: center;
+            padding: 15px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.4rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+
+        #clock {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1.4fr 1.1fr;
+            gap: 15px;
+            padding: 20px;
+        }
+
+        .stats-column {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .card {
+            background: var(--white);
+            border: 1.5px solid var(--border-color);
+            border-radius: 10px;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-label {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #555;
+            flex: 1;
+        }
+
+        .input-number {
+            width: 80px;
+            border: 1px solid transparent;
+            background: #f8faf9;
+            padding: 8px;
+            border-radius: 6px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: var(--primary-green);
+            text-align: right;
+            transition: all 0.3s;
+        }
+
+        .input-number:focus {
+            outline: none;
+            background: #fff;
+            border-color: var(--accent-green);
+            box-shadow: 0 0 5px rgba(46, 204, 113, 0.2);
+        }
+
+        .unit {
+            font-size: 0.75rem;
+            color: #888;
+            margin-left: 5px;
+            font-weight: 600;
+        }
+
+        .vhp-block {
+            background-color: var(--light-green);
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            border: 1px solid #dce8e3;
+            padding: 15px;
+        }
+
+        .vhp-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #666;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .select-sugar {
+            width: 100%;
+            background: transparent;
+            border: 2px solid var(--primary-green);
+            color: var(--primary-green);
+            font-size: 1.8rem;
+            font-weight: 900;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            padding: 5px;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+
+        .select-sugar:focus {
+            outline: none;
+            background: rgba(255,255,255,0.5);
+        }
+
+        .select-sugar option {
+            font-size: 1.1rem;
+            font-weight: 600;
+            background: white;
+            color: #333;
+        }
+
+        .observation-section {
+            padding: 0 20px 20px;
+        }
+
+        .observation-section label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: #444;
+            text-transform: uppercase;
+        }
+
+        textarea {
+            width: 100%;
+            height: 80px;
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            padding: 12px;
+            font-family: inherit;
+            resize: none;
+            box-sizing: border-box;
+            background-color: #f9fbfa;
+            font-size: 0.95rem;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent-green);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            <h1>Produção de Vinhaça</h1>
+            <div id="clock">Aguardando hora...</div>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="stats-column">
+                <div class="card">
+                    <span class="card-label">BOOSTER</span>
+                    <input type="number" id="input-booster" class="input-number" value="150">
+                    <span class="unit">m³/h</span>
+                </div>
+                <div class="card">
+                    <span class="card-label">2J</span>
+                    <input type="number" id="input-2j" class="input-number" value="60">
+                    <span class="unit">m³/h</span>
+                </div>
+                <div class="card">
+                    <span class="card-label">SETOR 01</span>
+                    <input type="number" id="input-setor1" class="input-number" value="10">
+                    <span class="unit">m³/h</span>
+                </div>
+                <div class="card">
+                    <span class="card-label">ÁGUA RESIDUAL</span>
+                    <input type="number" id="input-agua" class="input-number" value="12">
+                    <span class="unit">m³/h</span>
+                </div>
+            </div>
+
+            <div class="vhp-block">
+                <span class="vhp-title">Açúcar em Produção</span>
+                <select id="select-sugar" class="select-sugar">
+                    <option value="VHP" selected>VHP</option>
+                    <option value="VHP" selected>-</option>
+                    <option value="VHP PLUS">VHP PLUS</option>
+                    <option value="TIPO 01">TIPO 01</option>
+                    <option value="2AH">2AH</option>
+                    <option value="2CF">2CF</option>
+                    <option value="3C">3C</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="observation-section">
+            <label>Observação</label>
+            <textarea id="obs-text" placeholder="Relatório de ocorrências..."></textarea>
+        </div>
+    </div>
+
+    <script>
+        // Função para Relógio
+        function updateClock() {
+            const now = new Date();
+            const timeString = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR');
+            document.getElementById('clock').innerText = timeString;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // --- LÓGICA DE PERSISTÊNCIA (SALVAR DADOS) ---
+
+        const fields = [
+            'input-booster', 
+            'input-2j', 
+            'input-setor1', 
+            'input-agua', 
+            'select-sugar', 
+            'obs-text'
+        ];
+
+        // Função para salvar no LocalStorage
+        function saveData() {
+            fields.forEach(id => {
+                const element = document.getElementById(id);
+                localStorage.setItem(id, element.value);
+            });
+        }
+
+        // Função para carregar do LocalStorage
+        function loadData() {
+            fields.forEach(id => {
+                const savedValue = localStorage.getItem(id);
+                if (savedValue !== null) {
+                    document.getElementById(id).value = savedValue;
+                }
+            });
+        }
+
+        // Adiciona evento de "escuta" em todos os campos para salvar ao mudar algo
+        fields.forEach(id => {
+            document.getElementById(id).addEventListener('input', saveData);
+        });
+
+        // Carrega os dados assim que a página abre
+        window.onload = loadData;
+
+    </script>
+
+    <!-- Firebase App (the core Firebase SDK) is always required and must be listed first -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCnBug9V28EZG1NNzYjqShsYesjgewroPo",
+            authDomain: "torre-ctt-usa.firebaseapp.com",
+            projectId: "torre-ctt-usa",
+            storageBucket: "torre-ctt-usa.firebasestorage.app",
+            messagingSenderId: "655932765006",
+            appId: "1:655932765006:web:f2e239fb0a1b2f5867241f"
+        };
+
+        const app = initializeApp(firebaseConfig);
+    </script>
+</body>
+</html>

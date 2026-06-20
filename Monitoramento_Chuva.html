@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MONITORAMENTO DE CHUVA - COA</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<style>
+  :root {
+    --usa-verde-escuro: #004A2F;
+    --usa-verde-medio: #2D7A4C;
+    --usa-azul-petroleo: #265E64;
+    --usa-perigo-vermelho: #D93B2B;
+    --bg-body: #f0f2f5;
+    --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  
+  html,body { margin:0; background:var(--bg-body); color:#334155; font:11px/1.4 'Segoe UI', Arial, sans-serif; }
+  
+  /* Ajustes Gerais */
+  .page { max-width: 1200px; margin: 10px auto; padding: 0 10px 50px 10px; }
+  
+  .header-main { 
+    background: var(--usa-verde-escuro); padding: 12px 20px; 
+    display: flex; justify-content: space-between; align-items: center; color: #fff; 
+    border-radius: 8px 8px 0 0; box-shadow: var(--shadow);
+  }
+
+  .brand h1 { margin: 0; font-size: 18px; font-weight: 900; text-transform: uppercase; }
+  .brand p { margin: 0; font-size: 9px; text-transform: uppercase; opacity: 0.8; }
+
+  .content { padding: 10px 0; }
+  
+  .front-card { 
+    background: #fff; margin-bottom: 12px; border-radius: 8px; 
+    display: flex; flex-direction: column; overflow: hidden; 
+    box-shadow: var(--shadow); border: 1px solid #e2e8f0;
+  }
+  
+  .card-header-frente {
+    background: var(--usa-azul-petroleo); color: #fff; padding: 6px 15px;
+    font-weight: 900; font-size: 12px; text-transform: uppercase;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+
+  .card-body { display: grid; grid-template-columns: 1.2fr 100px 250px 100px 140px; }
+  
+  .col-info { padding: 10px; border-right: 1px solid #f1f5f9; display: flex; flex-direction: column; justify-content: center; }
+  .val-edit { font-size: 12px; font-weight: 800; color: var(--usa-verde-escuro); text-transform: uppercase; outline: none; }
+
+  .input-fonte, .input-status {
+    width: 100%; border: 1px solid #e2e8f0; border-radius: 4px; padding: 6px 4px;
+    font-size: 11px; font-weight: 900; text-transform: uppercase; outline: none; background: #f8fafc;
+    box-sizing: border-box;
+  }
+
+  /* Cores de Status */
+  .status-trabalhando { background-color: #2D7A4C !important; color: #ffffff !important; }
+  .status-parado { background-color: #D93B2B !important; color: #ffffff !important; }
+
+  .turns-container { display: grid; grid-template-columns: repeat(3, 1fr); background: #fdfdfd; }
+  .turn-cell { border-right: 1px solid #f1f5f9; text-align: center; }
+  .turn-h { background: #f1f5f9; font-size: 9px; font-weight: 800; padding: 4px 0; color: #475569; border-bottom: 1px solid #e2e8f0; }
+  .turn-input { padding: 10px 0; font-size: 16px; font-weight: 900; outline: none; color: var(--usa-azul-petroleo); }
+
+  .col-total { background: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid #f1f5f9; }
+  .total-val { font-size: 18px; font-weight: 900; color: #64748b; }
+  .has-rain { color: var(--usa-perigo-vermelho) !important; }
+
+  .col-status { background: #fff; display: flex; flex-direction: column; justify-content: center; padding: 10px; position: relative; }
+
+  .btn-action { border: none; padding: 8px 15px; border-radius: 6px; font-weight: 900; cursor: pointer; font-size: 10px; text-transform: uppercase; color: #fff; }
+  .btn-capture { background: #25d366; }
+  .btn-sync { background: var(--usa-verde-medio); }
+  
+  .label-small { font-size: 8px; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 2px; }
+
+  /* Elemento temporário para o Print */
+  .temp-status-div {
+    display: none;
+    width: 100%;
+    padding: 6px 4px;
+    font-size: 11px;
+    font-weight: 900;
+    text-align: center;
+    border-radius: 4px;
+    text-transform: uppercase;
+    box-sizing: border-box;
+  }
+
+  .capture-mode .no-print { display: none !important; }
+  .capture-mode .input-status { display: none !important; }
+  .capture-mode .temp-status-div { display: block !important; }
+</style>
+</head>
+<body>
+
+<datalist id="opcoes-fonte"><option value="ZEUS"><option value="FRENTE"></datalist>
+<datalist id="opcoes-status"><option value="TRABALHANDO"><option value="PARADO"></datalist>
+
+<div class="page" id="area-relatorio">
+  <header class="header-main">
+    <div class="brand">
+        <h1>USINA SANTA ADÉLIA</h1>
+        <p>COA • Monitoramento Pluviométrico das Frentes</p>
+    </div>
+    <div class="controls-bar no-print" style="display:flex; gap:10px;">
+      <button class="btn-action btn-sync" onclick="sincronizarComLogistica()">🔄 Atualizar Frentes</button>
+      <button class="btn-action btn-capture" id="btnCapture" onclick="tirarPrint()">📸 Copiar WhatsApp</button>
+    </div>
+  </header>
+
+  <main class="content" id="frentesGrid"></main>
+
+  <footer style="background: #fff; border-radius: 8px; padding: 15px; border: 1px solid #e2e8f0;">
+    <div style="font-weight: 900; font-size: 10px; color: var(--usa-verde-medio); margin-bottom: 5px;">OBSERVAÇÕES DO TURNO:</div>
+    <div contenteditable="true" id="obs-geral" style="min-height: 40px; outline: none; font-size: 12px;" oninput="salvarDados()">...</div>
+  </footer>
+</div>
+
+<script>
+const KEY_LOGISTICA = 'frentes_usa_vFinal';
+const KEY_CHUVA = 'dados_chuva_coa_v1';
+
+function sincronizarComLogistica() {
+    const dadosLog = JSON.parse(localStorage.getItem(KEY_LOGISTICA)) || { frentes: [] };
+    const dadosChuvaExistentes = JSON.parse(localStorage.getItem(KEY_CHUVA)) || { frentes: {}, obs: "" };
+    
+    const grid = document.getElementById('frentesGrid');
+    grid.innerHTML = "";
+
+    dadosLog.frentes.forEach(fr => {
+        fr.autfaz.forEach((setorInfo, index) => {
+            if (setorInfo.setor && setorInfo.setor.trim() !== "") {
+                const local = `${setorInfo.setor} / ${setorInfo.codigo}`;
+                const idInterno = `${fr.nome.toUpperCase()}_S${index + 1}`;
+                
+                const memoria = dadosChuvaExistentes.frentes[idInterno] || { a: "0", b: "0", c: "0", fonte: "ZEUS", status: "" };
+                
+                const card = document.createElement('div');
+                card.className = 'front-card';
+                card.innerHTML = `
+                    <div class="card-header-frente">
+                        <span>🚜 ${fr.nome.toUpperCase()}</span>
+                    </div>
+                    <div class="card-body" data-id-interno="${idInterno}">
+                        <div class="col-info">
+                            <div class="label-small">Fazenda / Talhão</div>
+                            <div class="val-edit">${local}</div>
+                        </div>
+                        <div class="col-info">
+                            <div class="label-small">Fonte</div>
+                            <input type="text" class="input-fonte" list="opcoes-fonte" value="${memoria.fonte}" oninput="salvarDados()">
+                        </div>
+                        <div class="turns-container">
+                            <div class="turn-cell"><div class="turn-h">A</div><div class="turn-input" contenteditable="true" oninput="updateTotal(this)">${memoria.a}</div></div>
+                            <div class="turn-cell"><div class="turn-h">B</div><div class="turn-input" contenteditable="true" oninput="updateTotal(this)">${memoria.b}</div></div>
+                            <div class="turn-cell"><div class="turn-h">C</div><div class="turn-input" contenteditable="true" oninput="updateTotal(this)">${memoria.c}</div></div>
+                        </div>
+                        <div class="col-total">
+                            <div class="label-small">Total 24h</div>
+                            <div class="total-val">0,0 mm</div>
+                        </div>
+                        <div class="col-status">
+                            <div class="label-small">Status</div>
+                            <input type="text" class="input-status" list="opcoes-status" oninput="colorirStatus(this)" value="${memoria.status}">
+                            <div class="temp-status-div"></div>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+                updateTotal(card.querySelector('.turn-input'));
+                colorirStatus(card.querySelector('.input-status'));
+            }
+        });
+    });
+    
+    document.getElementById('obs-geral').innerText = dadosChuvaExistentes.obs || "...";
+}
+
+function salvarDados() {
+    const backup = { frentes: {}, obs: document.getElementById('obs-geral').innerText };
+    document.querySelectorAll('.card-body').forEach(cb => {
+        const idInterno = cb.getAttribute('data-id-interno');
+        const inputs = cb.querySelectorAll('.turn-input');
+        backup.frentes[idInterno] = {
+            a: inputs[0].innerText,
+            b: inputs[1].innerText,
+            c: inputs[2].innerText,
+            fonte: cb.querySelector('.input-fonte').value,
+            status: cb.querySelector('.input-status').value
+        };
+    });
+    localStorage.setItem(KEY_CHUVA, JSON.stringify(backup));
+}
+
+function updateTotal(el) {
+    const card = el.closest('.front-card');
+    const inputs = card.querySelectorAll('.turn-input');
+    const display = card.querySelector('.total-val');
+    let soma = 0;
+    inputs.forEach(i => {
+        let val = i.innerText.replace(',', '.').trim();
+        soma += parseFloat(val) || 0;
+    });
+    display.innerText = soma.toFixed(1).replace('.', ',') + " mm";
+    soma > 0 ? display.classList.add('has-rain') : display.classList.remove('has-rain');
+    salvarDados();
+}
+
+function colorirStatus(el) {
+    const v = el.value.toUpperCase().trim();
+    const parent = el.closest('.col-status');
+    const tempDiv = parent.querySelector('.temp-status-div');
+    
+    el.classList.remove('status-trabalhando', 'status-parado');
+    tempDiv.classList.remove('status-trabalhando', 'status-parado');
+    
+    if(v === "TRABALHANDO") {
+        el.classList.add('status-trabalhando');
+        tempDiv.classList.add('status-trabalhando');
+    } else if(v === "PARADO") {
+        el.classList.add('status-parado');
+        tempDiv.classList.add('status-parado');
+    }
+    
+    tempDiv.innerText = v;
+    salvarDados();
+}
+
+async function tirarPrint() {
+    const btn = document.getElementById('btnCapture');
+    const area = document.getElementById('area-relatorio');
+    
+    salvarDados();
+    document.body.classList.add('capture-mode');
+    btn.innerText = "⏳ GERANDO...";
+
+    // Pequena pausa para garantir que o layout 'temp-status-div' apareça
+    setTimeout(async () => {
+        try {
+            const canvas = await html2canvas(area, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: "#f0f2f5"
+            });
+
+            canvas.toBlob(async (blob) => {
+                const item = new ClipboardItem({ "image/png": blob });
+                await navigator.clipboard.write([item]);
+                
+                btn.innerText = "✅ COPIADO!";
+                setTimeout(() => {
+                    btn.innerText = "📸 Copiar WhatsApp";
+                    document.body.classList.remove('capture-mode');
+                }, 2000);
+            });
+        } catch (err) {
+            console.error(err);
+            btn.innerText = "📸 Copiar WhatsApp";
+            document.body.classList.remove('capture-mode');
+        }
+    }, 150);
+}
+
+window.onload = sincronizarComLogistica;
+</script>
+    <!-- Firebase App (the core Firebase SDK) is always required and must be listed first -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCnBug9V28EZG1NNzYjqShsYesjgewroPo",
+            authDomain: "torre-ctt-usa.firebaseapp.com",
+            projectId: "torre-ctt-usa",
+            storageBucket: "torre-ctt-usa.firebasestorage.app",
+            messagingSenderId: "655932765006",
+            appId: "1:655932765006:web:f2e239fb0a1b2f5867241f"
+        };
+
+        const app = initializeApp(firebaseConfig);
+    </script>
+</body>
+</html>

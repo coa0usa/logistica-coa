@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Painel Operacional - Usina Santa Adélia</title>
+
+<style>
+    :root {
+        --bg-topo: linear-gradient(90deg, #0f172a, #1f2937);
+        --cor-aba: #cbd5e1;
+        --cor-ativa: #3b82f6;
+        --cor-hover: rgba(255,255,255,0.08);
+        --bg-conteudo: #f1f5f9;
+    }
+
+    body {
+        margin: 0;
+        font-family: "Segoe UI", Arial, sans-serif;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .topo {
+        height: 54px;
+        background: var(--bg-topo);
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+        color: #fff;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    .abas {
+        display: flex;
+        flex: 1;
+        height: 100%;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+    
+    .abas::-webkit-scrollbar { display: none; }
+
+    .aba {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 15px;
+        cursor: pointer;
+        color: var(--cor-aba);
+        font-size: 13px;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+    }
+
+    .aba:hover {
+        background: var(--cor-hover);
+        color: #fff;
+    }
+
+    .aba.ativa {
+        color: #fff;
+        font-weight: 600;
+        background: rgba(255,255,255,0.05);
+    }
+
+    .aba.ativa::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: var(--cor-ativa);
+    }
+
+    .data-hora-container {
+        display: flex;
+        align-items: center;
+        margin-left: auto;
+    }
+
+    .data-hora {
+        font-size: 12px;
+        font-family: 'Courier New', Courier, monospace;
+        background: rgba(0,0,0,0.3);
+        padding: 5px 12px;
+        border-radius: 4px;
+        white-space: nowrap;
+        color: #fff;
+    }
+
+    .conteudo {
+        flex: 1;
+        background: var(--bg-conteudo);
+    }
+
+    iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        background: #fff;
+    }
+</style>
+</head>
+
+<body>
+
+<div class="topo">
+    <div class="abas">
+        <!-- Nova Aba: Abastecimento e Refeição -->
+        <div class="aba ativa" onclick="abrirAba(this,'index.html')">
+            ⛽ Abastecimento
+        </div>
+                <div class="aba" onclick="abrirAba(this,'potencia_frente.html')">
+            ⚡ Potência Frente
+        </div>
+        <div class="aba" onclick="abrirAba(this,'gestao_frotas.html')">
+            🚜 Gestão de Frotas
+        </div>
+        <div class="aba" onclick="abrirAba(this,'localizacao_frentes.html')">
+            📍 Localização Frentes
+        </div>        
+        <div class="aba" onclick="abrirAba(this,'vinhaça.html')">
+            💧 Produção Vinhaça
+        </div>
+        <div class="aba" onclick="abrirAba(this,'controle-patio.html')">
+            📋 Pátio
+        </div>
+        <div class="aba" onclick="abrirAba(this,'monitoramento_chuva.html')">
+            🌧️ Pluviométrico
+        </div>
+        <div class="aba" onclick="abrirAba(this,'dimensionamento.html')">
+            📐 Dimensionamento
+        </div>
+        <div class="aba" onclick="abrirAba(this,'checklist.html')">
+            📋 Checklist Turno
+        </div>
+        <div class="aba" onclick="abrirAba(this,'controle_de_atraso.html')">
+            ⏱️ Ciclo CM
+        </div>
+    </div>   
+    </div>
+
+<div class="conteudo">
+    <!-- Define index.html como a tela inicial -->
+    <iframe id="tela" src="index.html"></iframe>
+</div>
+
+<script>
+    function abrirAba(el, arquivo) {
+        document.querySelectorAll('.aba').forEach(a => a.classList.remove('ativa'));
+        el.classList.add('ativa');
+        document.getElementById('tela').src = arquivo;
+    }
+
+    function atualizarDataHora() {
+        const agora = new Date();
+        const data = agora.toLocaleDateString('pt-BR');
+        const hora = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const divDataHora = document.getElementById('dataHora');
+        if (divDataHora) {
+            divDataHora.innerHTML = `📅 ${data} ⏰ ${hora}`;
+        }
+    }
+
+    setInterval(atualizarDataHora, 1000);
+    atualizarDataHora();
+</script>
+
+</body>
+</html>

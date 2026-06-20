@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard | Controle de Pátio</title>
+
+<style>
+:root{
+  --primaria: #0f3d2e;
+  --secundaria: #2D7A4C;
+  --bg: #f0f2f5;
+  --branco: #ffffff;
+  --perigo: #D93B2B;
+  --borda: #e1e4e8;
+}
+
+*{ box-sizing: border-box; transition: all 0.2s; }
+
+body{
+  margin: 0;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: #333;
+}
+
+/* CABEÇALHO */
+.header{
+  background: var(--primaria);
+  color: #fff;
+  padding: 15px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+
+.titulo-principal {
+  text-align: center;
+  padding: 20px 0;
+}
+.titulo-principal h1 {
+  margin: 0;
+  font-size: 26px;
+  color: var(--primaria);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* CARDS DE PARÂMETROS */
+.container-params {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  padding: 0 20px 20px;
+}
+.card-param {
+  background: var(--branco);
+  padding: 12px 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  text-align: center;
+  min-width: 140px;
+}
+.card-param label { font-size: 11px; font-weight: bold; color: #666; display: block; margin-bottom: 5px; }
+.card-param input { 
+  width: 100%; border: 1px solid var(--borda); border-radius: 6px; 
+  padding: 5px; text-align: center; font-weight: bold; font-size: 16px; color: var(--secundaria);
+}
+
+/* LAYOUT LEIRAS */
+.main-layout {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+  padding: 0 20px 40px;
+}
+
+.card-leira {
+  background: var(--branco);
+  width: 320px;
+  border-radius: 16px;
+  padding: 15px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+  border: 1px solid var(--borda);
+}
+
+.leira-header {
+  background: var(--secundaria);
+  color: white;
+  margin: -15px -15px 15px -15px;
+  padding: 12px;
+  border-radius: 16px 16px 0 0;
+  text-align: center;
+  font-weight: bold;
+}
+
+.resumo-leira {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+.thermo-container {
+  width: 30px; height: 120px; background: #eee; border-radius: 15px;
+  position: relative; overflow: hidden; border: 1px solid #ddd;
+}
+.thermo-fill {
+  position: absolute; bottom: 0; width: 100%; background: linear-gradient(to top, #61A146, #E5664C, #D93B2B);
+}
+.thermo-mask {
+  position: absolute; top: 0; width: 100%; background: rgba(255,255,255,0.7);
+}
+
+.tabela-mini {
+  width: 100%; border-collapse: collapse; font-size: 11px;
+}
+.tabela-mini td { padding: 4px; border-bottom: 1px solid #f0f0f0; }
+.tabela-mini input { width: 100%; border: none; font-weight: bold; text-align: right; outline: none; }
+
+.tabela-renovar { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px; }
+.tabela-renovar table { width: 100%; border-collapse: collapse; }
+.tabela-renovar th { background: #f8f9fa; padding: 6px; border: 1px solid #eee; }
+.tabela-renovar td { border: 1px solid #eee; padding: 0; }
+.tabela-renovar input { width: 100%; border: none; padding: 6px; text-align: center; outline: none; }
+
+/* ESTILO DO ALERTA */
+.atrasado { 
+    background-color: var(--perigo) !important; 
+    color: white !important; 
+    font-weight: bold; 
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+.card-cronometro {
+  width: 320px; background: #265E64; color: white; border-radius: 16px; padding: 20px;
+}
+.tempo-display { font-size: 32px; font-weight: bold; text-align: center; margin: 10px 0; font-family: monospace; }
+
+.btn {
+  width: 100%; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 10px;
+}
+.btn-play { background: #fff; color: #265E64; }
+.btn-reset { background: rgba(255,255,255,0.2); color: white; }
+.btn-limpar { background: var(--perigo); color: white; width: auto; margin-left: 10px; }
+
+@media print { .header, .btn, .btn-pdf, .btn-limpar { display: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div><strong>USINA SANTA ADÉLIA</strong><br><small> Estoque Pátio Cana</small></div>
+  <div style="display: flex; align-items: center;">
+    <button class="btn-pdf btn" style="width:auto; background:#1e6b43; color:white; margin-top:0;" onclick="window.print()">GERAR RELATÓRIO PDF</button>
+    <button class="btn btn-limpar" style="margin-top:0;" onclick="limparTudo()">LIMPAR TUDO</button>
+  </div>
+</div>
+
+<div class="titulo-principal">
+  <h1>Controle Operacional de Pátio</h1>
+</div>
+
+<div class="container-params">
+  <div class="card-param"><label>DENSIDADE</label><input id="dens" value="" oninput="calcular()"></div>
+  <div class="card-param"><label>MOAGEM (t/h)</label><input id="moagem" value="" oninput="calcular(); salvarDados()"></div>
+  <div class="card-param"><label>TC PÁTIO</label><input id="tcPatio" readonly style="background:#f8f9fa"></div>
+  <div class="card-param"><label>QUANT. CM</label><input id="quantTotal" readonly style="background:#f8f9fa"></div>
+</div>
+
+<div class="main-layout">
+<script>
+for(let i=1;i<=3;i++){
+document.write(`
+  <div class="card-leira">
+    <div class="leira-header">LEIRA Nº 0${i}</div>
+    <div class="resumo-leira">
+      <div class="thermo-container">
+        <div class="thermo-fill" style="height:100%"></div>
+        <div class="thermo-mask" id="m${i}"></div>
+      </div>
+      <table class="tabela-mini">
+        <tr><td>CAP. CM</td><td><input id="c${i}" value="15" oninput="calcular()"></td></tr>
+        <tr><td>QTD CM</td><td><input id="q${i}" value="10" oninput="calcular()"></td></tr>
+        <tr><td>TONELADAS</td><td><input id="t${i}" readonly></td></tr>
+      </table>
+    </div>
+    <div class="tabela-renovar">
+      <table>
+        <thead><tr><th>Data</th><th>Início</th><th>Renovar</th></tr></thead>
+        <tbody>
+          ${Array.from({length: 5}, (_, row) => `
+            <tr>
+              <td><input type="text" id="data_${i}_${row}" placeholder="00/00"></td>
+              <td><input type="time" id="ini_${i}_${row}" class="h-ini" oninput="checar8h()"></td>
+              <td><input id="ren_${i}_${row}" class="h-ren" readonly placeholder="--:--"></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>
+`);
+}
+</script>
+
+<div class="card-cronometro">
+  <div style="text-align:center; font-size:12px; font-weight:bold; opacity:0.8">TEMPO SEM CM NO PÁTIO</div>
+  <div class="tempo-display" id="tempo">00:00:00</div>
+  <table style="width:100%; font-size:12px">
+    <tr><td>Perda Ton:</td><td id="perda" style="text-align:right; font-weight:bold">0</td></tr>
+    <tr><td>Perda CM:</td><td id="cmPerda" style="text-align:right; font-weight:bold">0</td></tr>
+  </table>
+  <button class="btn btn-play" id="btnCrono" onclick="toggleCrono()">INICIAR CRONÔMETRO</button>
+  <button class="btn btn-reset" onclick="zerarCrono()">ZERAR</button>
+</div>
+</div>
+
+<script>
+let segundos=0, rodando=false, timer=null;
+let bloqueioSalvamento = false;
+
+function salvarDados() {
+    if (bloqueioSalvamento) return;
+    
+    const dados = {
+        segundos: segundos,
+        rodando: rodando,
+        inputs: {}
+    };
+
+    document.querySelectorAll('input').forEach(el => {
+        if (el.id && !el.readOnly) {
+            dados.inputs[el.id] = el.value;
+        }
+    });
+
+    localStorage.setItem('dadosPatio_v1', JSON.stringify(dados));
+
+    // COMPARTILHAMENTO COM LOCALIZACAO_FRENTES
+    localStorage.setItem('shared_moagem', document.getElementById('moagem').value);
+    localStorage.setItem('shared_tcPatio', document.getElementById('tcPatio').value);
+}
+
+function carregarDados() {
+    const salvo = localStorage.getItem('dadosPatio_v1');
+    if (!salvo) return;
+
+    const dados = JSON.parse(salvo);
+    for (const [id, valor] of Object.entries(dados.inputs)) {
+        const el = document.getElementById(id);
+        if (el) el.value = valor;
+    }
+
+    segundos = dados.segundos || 0;
+    if (dados.rodando) {
+        rodando = false; 
+        toggleCrono();
+    } else {
+        atualizarDisplayCrono();
+    }
+
+    calcular();
+    checar8h();
+}
+
+function limparTudo() {
+    if (confirm("ATENÇÃO: Isso apagará todos os dados preenchidos. Confirmar?")) {
+        bloqueioSalvamento = true; 
+        localStorage.removeItem('dadosPatio_v1');
+        localStorage.removeItem('shared_moagem');
+        localStorage.removeItem('shared_tcPatio');
+        
+        document.querySelectorAll('input').forEach(i => { if(!i.readOnly) i.value = ""; });
+        window.location.reload();
+    }
+}
+
+function calcular(){
+  const densVal = +dens.value || 1;
+  let sT=0, sC=0;
+  for(let i=1;i<=3;i++){
+    const cap = +document.getElementById(`c${i}`).value||0;
+    const qtd = Math.min(+document.getElementById(`q${i}`).value||0, cap);
+    const ton = qtd * densVal;
+    document.getElementById(`t${i}`).value = ton.toFixed(1);
+    const perc = cap ? (qtd/cap) : 0;
+    document.getElementById(`m${i}`).style.height = (1 - perc)*100 + "%";
+    sT += ton; sC += qtd;
+  }
+  tcPatio.value = sT.toFixed(1);
+  quantTotal.value = sC;
+  atualizarDisplayCrono();
+  // Força atualização dos dados compartilhados ao calcular (TC Pátio muda)
+  if(!bloqueioSalvamento) {
+      localStorage.setItem('shared_tcPatio', tcPatio.value);
+  }
+}
+
+function checar8h() {
+  const agora = new Date();
+  const minAtual = agora.getHours() * 60 + agora.getMinutes();
+  document.querySelectorAll('.tabela-renovar tbody tr').forEach(linha => {
+    const inputIni = linha.querySelector('.h-ini');
+    const inputRen = linha.querySelector('.h-ren');
+    if (inputIni.value) {
+      const [h, m] = inputIni.value.split(':').map(Number);
+      let minLimite = (h * 60 + m) + 480; 
+      const hL = Math.floor((minLimite / 60) % 24);
+      const mL = minLimite % 60;
+      inputRen.value = `${String(hL).padStart(2,'0')}:${String(mL).padStart(2,'0')}`;
+      let expirou = false;
+      if (minLimite < 1440) { 
+        if (minAtual >= minLimite) expirou = true;
+      } else { 
+        const minLimiteDiaSeguinte = minLimite - 1440;
+        if (minAtual >= minLimiteDiaSeguinte && minAtual < (h * 60 + m)) expirou = true;
+      }
+      inputRen.classList.toggle('atrasado', expirou);
+    } else {
+      inputRen.value = "";
+      inputRen.classList.remove('atrasado');
+    }
+  });
+}
+
+function atualizarDisplayCrono() {
+    const h=Math.floor(segundos/3600), m=Math.floor((segundos%3600)/60), s=segundos%60;
+    tempo.innerText=`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+    const pT = (+moagem.value||0)*(segundos/3600);
+    perda.innerText = pT.toFixed(2);
+    cmPerda.innerText = (pT/(+dens.value||1)).toFixed(2);
+}
+
+function toggleCrono(){
+  if(!rodando){
+    rodando=true; btnCrono.innerText="PARAR";
+    timer=setInterval(()=>{ segundos++; atualizarDisplayCrono(); },1000);
+  } else {
+    rodando=false; clearInterval(timer); btnCrono.innerText="INICIAR";
+    salvarDados();
+  }
+}
+
+function zerarCrono(){ segundos=0; atualizarDisplayCrono(); salvarDados(); }
+
+window.onload = () => {
+    carregarDados();
+    setInterval(checar8h, 30000);
+    setInterval(salvarDados, 60000); 
+};
+
+window.addEventListener('beforeunload', () => {
+    if (!bloqueioSalvamento) salvarDados();
+});
+</script>
+</body>
+</html>
