@@ -123,12 +123,15 @@
 const KEY_LOGISTICA = 'frentes_usa_vFinal';
 const KEY_CHUVA = 'dados_chuva_coa_v1';
 
-window.sincronizarComLogistica = function(dadosLogParam, dadosChuvaParam) {
-    const dadosLog = dadosLogParam || { frentes: [] };
-    const dadosChuvaExistentes = dadosChuvaParam || { frentes: {}, obs: "" };
+window.sincronizarComLogistica = function() {
+    const dadosLog = window.dadosLogCache || { frentes: [] };
+    const dadosChuvaExistentes = window.dadosChuvaCache || { frentes: {}, obs: "" };
     
     const grid = document.getElementById('frentesGrid');
     grid.innerHTML = "";
+
+    if(!dadosLog.frentes) dadosLog.frentes = [];
+    if(!dadosChuvaExistentes.frentes) dadosChuvaExistentes.frentes = {};
 
     dadosLog.frentes.forEach(fr => {
         fr.autfaz.forEach((setorInfo, index) => {
@@ -289,25 +292,25 @@ window.tirarPrint = async function() {
         const docRefChuva = doc(db, "torre_logistica", "monitoramento_chuva");
         const docRefFrentes = doc(db, "torre_logistica", "localizacao_frentes");
 
-        let dadosLogCache = { frentes: [] };
-        let dadosChuvaCache = { frentes: {}, obs: "" };
+        window.dadosLogCache = { frentes: [] };
+        window.dadosChuvaCache = { frentes: {}, obs: "" };
         let init = false;
 
         onSnapshot(docRefFrentes, (docSnap) => {
             if(docSnap.exists()) {
-                dadosLogCache = docSnap.data();
-                if(!dadosLogCache.frentes) dadosLogCache.frentes = [];
+                window.dadosLogCache = docSnap.data();
+                if(!window.dadosLogCache.frentes) window.dadosLogCache.frentes = [];
             }
-            if(init && window.sincronizarComLogistica) window.sincronizarComLogistica(dadosLogCache, dadosChuvaCache);
+            if(init && window.sincronizarComLogistica) window.sincronizarComLogistica();
         });
 
         onSnapshot(docRefChuva, (docSnap) => {
             if(docSnap.exists()) {
-                dadosChuvaCache = docSnap.data();
-                if(!dadosChuvaCache.frentes) dadosChuvaCache.frentes = {};
+                window.dadosChuvaCache = docSnap.data();
+                if(!window.dadosChuvaCache.frentes) window.dadosChuvaCache.frentes = {};
             }
             init = true;
-            if(window.sincronizarComLogistica) window.sincronizarComLogistica(dadosLogCache, dadosChuvaCache);
+            if(window.sincronizarComLogistica) window.sincronizarComLogistica();
         });
 
         window.salvarNoFirebase = function(dadosChuva) {
