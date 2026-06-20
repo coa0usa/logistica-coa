@@ -1,419 +1,174 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema COA - Gestão Logística</title>
-    <style>
-        :root {
-            --verde-usa: #1a3c1f;
-            --verde-claro: #8da15b;
-            --bege: #fdf5f0;
-            --borda: #ddd;
-            --ativo: #2ecc71;
-            --perigo: #e74c3c;
-            --bg: #f0f2f5;
-            --shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
+<meta charset="UTF-8">
+<title>Painel Operacional - Usina Santa Adélia</title>
 
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: #333; }
+<style>
+    :root {
+        --bg-topo: linear-gradient(90deg, #0f172a, #1f2937);
+        --cor-aba: #cbd5e1;
+        --cor-ativa: #3b82f6;
+        --cor-hover: rgba(255,255,255,0.08);
+        --bg-conteudo: #f1f5f9;
+    }
 
-        .header-container { 
-            background: var(--verde-usa); color: white; padding: 12px 25px; 
-            border-radius: 12px; box-shadow: var(--shadow);
-            display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
-        }
+    body {
+        margin: 0;
+        font-family: "Segoe UI", Arial, sans-serif;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
 
-        .header-container h1 { margin: 0; font-size: 18px; text-transform: uppercase; letter-spacing: 1px; }
-        .header-controls { display: flex; align-items: center; gap: 15px; }
+    .topo {
+        height: 54px;
+        background: var(--bg-topo);
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+        color: #fff;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
 
-        .btn-config {
-            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3);
-            color: white; padding: 8px 15px; border-radius: 6px; cursor: pointer; transition: 0.3s;
-            font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 5px;
-        }
-        .btn-config:hover { background: var(--verde-claro); }
+    .abas {
+        display: flex;
+        flex: 1;
+        height: 100%;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+    
+    .abas::-webkit-scrollbar { display: none; }
 
-        .input-data-header { 
-            padding: 6px 10px; border: 1px solid var(--verde-claro); border-radius: 6px; 
-            font-weight: bold; outline: none; font-size: 13px; background: white; color: #333;
-        }
+    .aba {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 15px;
+        cursor: pointer;
+        color: var(--cor-aba);
+        font-size: 13px;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+    }
 
-        /* MODAL */
-        #modal-cadastro {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;
-        }
-        .modal-content {
-            background: white; width: 95%; max-width: 1000px; max-height: 85vh; 
-            border-radius: 12px; display: flex; flex-direction: column; overflow: hidden;
-        }
-        .modal-header { background: var(--verde-usa); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
-        .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+    .aba:hover {
+        background: var(--cor-hover);
+        color: #fff;
+    }
 
-        /* DASHBOARD */
-        .dashboard { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
-        .card-turno { background: white; border-radius: 12px; border: 1px solid var(--borda); overflow: hidden; box-shadow: var(--shadow); transition: 0.3s; }
-        .card-header { background: #f8f9fa; border-bottom: 2px solid var(--verde-usa); padding: 10px; text-align: center; font-weight: bold; font-size: 13px; color: var(--verde-usa); }
-        .card-body { display: grid; grid-template-columns: 1fr 1fr; padding: 12px; gap: 10px; text-align: center; }
-        .metrica-grupo { border: 1px solid #f0f0f0; padding: 8px; border-radius: 8px; }
-        .metrica b { font-size: 20px; color: var(--verde-usa); display: block; }
-        .metrica span { font-size: 10px; color: #777; text-transform: uppercase; font-weight: bold; }
+    .aba.ativa {
+        color: #fff;
+        font-weight: 600;
+        background: rgba(255,255,255,0.05);
+    }
 
-        /* TABELAS */
-        .grid-container { display: flex; background: white; border-radius: 12px; box-shadow: var(--shadow); overflow-x: auto; border: 1px solid var(--borda); }
-        .secao { flex: 1; min-width: 280px; border-right: 1px solid #eee; }
-        .secao-frota { flex: 0 0 110px; background: #f9f9f9; border-right: 3px solid var(--verde-usa); }
-        .titulo-coluna { background: var(--verde-claro); color: white; padding: 12px; text-align: center; font-size: 11px; font-weight: bold; transition: 0.3s; }
-        .titulo-coluna.ativo { background: var(--ativo); }
+    .aba.ativa::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: var(--cor-ativa);
+    }
 
-        table { width: 100%; border-collapse: collapse; }
-        th { font-size: 9px; padding: 8px; background: #fafafa; color: #666; border-bottom: 1px solid #eee; text-transform: uppercase; }
-        td { border-bottom: 1px solid #f5f5f5; height: 42px; text-align: center; position: relative; }
-        input { width: 100%; height: 100%; border: none; text-align: center; font-size: 12px; outline: none; background: transparent; }
-        input[readonly] { background: #f8f9fa; color: #d35400; cursor: not-allowed; font-weight: bold; }
-        
-        .input-base { background: #fff9c4 !important; font-weight: bold; color: #d35400; border: 1px solid #f1c40f !important; border-radius: 4px; width: 90% !important; margin: 0 auto; }
-        .frota-input { font-weight: bold; color: var(--verde-usa); }
-        .frota-info { font-size: 9px; color: #999; display: block; margin-top: -3px; }
-        
-        .col-ref { background: var(--bege); }
-        .autonomia-alerta { color: var(--perigo) !important; font-weight: bold; background: #ffeaea !important; }
-    </style>
+    .data-hora-container {
+        display: flex;
+        align-items: center;
+        margin-left: auto;
+    }
+
+    .data-hora {
+        font-size: 12px;
+        font-family: 'Courier New', Courier, monospace;
+        background: rgba(0,0,0,0.3);
+        padding: 5px 12px;
+        border-radius: 4px;
+        white-space: nowrap;
+        color: #fff;
+    }
+
+    .conteudo {
+        flex: 1;
+        background: var(--bg-conteudo);
+    }
+
+    iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        background: #fff;
+    }
+</style>
 </head>
+
 <body>
 
-    <div class="header-container">
-        <h1>COA - Controle de Frota e Autonomia</h1>
-        <div class="header-controls">
-            <button class="btn-config" onclick="toggleModal()">⚙️ CADASTRO TÉCNICO</button>
-            <input type="date" id="data-controle" class="input-data-header" onchange="carregarDia()">
+<div class="topo">
+    <div class="abas">
+        <!-- Nova Aba: Abastecimento e Refeição -->
+        <div class="aba ativa" onclick="abrirAba(this,'Abastecimento_refeição.html')">
+            ⛽ Abastecimento
         </div>
+                <div class="aba" onclick="abrirAba(this,'potencia_frente.html')">
+            ⚡ Potência Frente
+        </div>
+        <div class="aba" onclick="abrirAba(this,'gestao_frotas.html')">
+            🚜 Gestão de Frotas
+        </div>
+        <div class="aba" onclick="abrirAba(this,'localizacao_frentes.html')">
+            📍 Localização Frentes
+        </div>        
+        <div class="aba" onclick="abrirAba(this,'vinhaça.html')">
+            💧 Produção Vinhaça
+        </div>
+        <div class="aba" onclick="abrirAba(this,'controle-patio.html')">
+            📋 Pátio
+        </div>
+        <div class="aba" onclick="abrirAba(this,'monitoramento_chuva.html')">
+            🌧️ Pluviométrico
+        </div>
+        <div class="aba" onclick="abrirAba(this,'dimensionamento.html')">
+            📐 Dimensionamento
+        </div>
+        <div class="aba" onclick="abrirAba(this,'checklist.html')">
+            📋 Checklist Turno
+        </div>
+        <div class="aba" onclick="abrirAba(this,'controle_de_atraso.html')">
+            ⏱️ Ciclo CM
+        </div>
+    </div>   
     </div>
 
-    <div id="modal-cadastro">
-        <div class="modal-content">
-            <div class="modal-header">
-                <b>CADASTRO TÉCNICO E CONFIGURAÇÃO DE BASE</b>
-                <button onclick="toggleModal()" style="background:none; border:none; color:white; cursor:pointer; font-size:24px;">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p style="font-size: 12px; color: #d35400; font-weight: bold; margin-bottom: 10px;">
-                    ⚠️ O KM BASE é o ponto de partida para o cálculo do Turno A.
-                </p>
-                <table id="tabela-cadastro">
-                    <thead>
-                        <tr>
-                            <th>Frota</th>
-                            <th>Tanque (L)</th>
-                            <th>KM/L</th>
-                            <th style="color: #d35400; background: #fff9c4;">KM BASE INICIAL</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tbody-cadastro"></tbody>
-                </table>
-                <button onclick="salvarCadastro()" style="width:100%; padding:15px; background:var(--verde-usa); color:white; border:none; border-radius:8px; margin-top:15px; cursor:pointer; font-weight:bold;">SALVAR CONFIGURAÇÕES</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="dashboard">
-        <div class="card-turno" id="card-a">
-            <div class="card-header">TURNO A</div>
-            <div class="card-body">
-                <div class="metrica-grupo"><div class="metrica"><span>Abast.</span><b id="db-a-aba">0</b></div></div>
-                <div class="metrica-grupo"><div class="metrica"><span>Refeição</span><b id="db-a-ref">0</b></div></div>
-            </div>
-        </div>
-        <div class="card-turno" id="card-b">
-            <div class="card-header">TURNO B</div>
-            <div class="card-body">
-                <div class="metrica-grupo"><div class="metrica"><span>Abast.</span><b id="db-b-aba">0</b></div></div>
-                <div class="metrica-grupo"><div class="metrica"><span>Refeição</span><b id="db-b-ref">0</b></div></div>
-            </div>
-        </div>
-        <div class="card-turno" id="card-c">
-            <div class="card-header">TURNO C</div>
-            <div class="card-body">
-                <div class="metrica-grupo"><div class="metrica"><span>Abast.</span><b id="db-c-aba">0</b></div></div>
-                <div class="metrica-grupo"><div class="metrica"><span>Refeição</span><b id="db-c-ref">0</b></div></div>
-            </div>
-        </div>
-    </div>
-
-    <div class="grid-container">
-        <div class="secao secao-frota">
-            <div class="titulo-coluna" style="background: var(--verde-usa);">FROTA</div>
-            <table><thead><tr><th>Nº</th></tr></thead><tbody id="tbody-frota"></tbody></table>
-        </div>
-        <div class="secao">
-            <div class="titulo-coluna" id="head-a">TURNO A</div>
-            <table><thead><tr><th>KM ATUAL</th><th>L. GASTO</th><th>AUTON.</th><th>REF</th></tr></thead><tbody id="tbody-a"></tbody></table>
-        </div>
-        <div class="secao">
-            <div class="titulo-coluna" id="head-b">TURNO B</div>
-            <table><thead><tr><th>KM ATUAL</th><th>L. GASTO</th><th>AUTON.</th><th>REF</th></tr></thead><tbody id="tbody-b"></tbody></table>
-        </div>
-        <div class="secao">
-            <div class="titulo-coluna" id="head-c">TURNO C</div>
-            <table><thead><tr><th>KM ATUAL</th><th>L. GASTO</th><th>AUTON.</th><th>REF</th></tr></thead><tbody id="tbody-c"></tbody></table>
-        </div>
-    </div>
+<div class="conteudo">
+    <!-- Define Abastecimento_refeição.html como a tela inicial -->
+    <iframe id="tela" src="Abastecimento_refeição.html"></iframe>
+</div>
 
 <script>
-    const LINHAS = 30;
-
-    // Mascara ajustada para permitir digitação fluida sem "0,00" inicial
-    function mascaraKM(input) {
-        let v = input.value.replace(/\D/g, '');
-        if (v === "") {
-            input.value = "";
-            return;
-        }
-        if (v.length > 2) {
-            let decimais = v.slice(-2);
-            let inteiros = v.slice(0, -2);
-            inteiros = inteiros.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
-            input.value = inteiros + ',' + decimais;
-        } else {
-            input.value = v; 
-        }
+    function abrirAba(el, arquivo) {
+        document.querySelectorAll('.aba').forEach(a => a.classList.remove('ativa'));
+        el.classList.add('ativa');
+        document.getElementById('tela').src = arquivo;
     }
 
-    function parseKM(valor) {
-        if (!valor || valor === "") return null;
-        let limpo = valor.toString().replace(/\./g, '').replace(',', '.');
-        let num = parseFloat(limpo);
-        return isNaN(num) ? null : num;
-    }
-
-    function formatarNumeroBrasil(num) {
-        return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-
-    function toggleModal() {
-        const m = document.getElementById('modal-cadastro');
-        const isOpening = m.style.display !== 'flex';
-        m.style.display = isOpening ? 'flex' : 'none';
-        if(isOpening) carregarCadastro();
-    }
-
-    function buscarUltimoKMAntesDeHoje(frota) {
-        const dataHoje = document.getElementById('data-controle').value;
-        const historico = JSON.parse(localStorage.getItem('usa_v4_dados') || '{}');
-        const datas = Object.keys(historico).sort().reverse();
-        
-        for (let d of datas) {
-            if (d < dataHoje) {
-                const registro = historico[d].find(r => r.frota === frota);
-                if (registro) {
-                    let kms = [registro.c_ini, registro.b_ini, registro.a_ini];
-                    for (let val of kms) {
-                        let n = parseKM(val);
-                        if (n !== null) return n;
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
-    function salvarCadastro() {
-        let cadastro = {};
-        document.querySelectorAll('#tbody-cadastro tr').forEach(row => {
-            const inputs = row.querySelectorAll('input');
-            const frota = inputs[0].value.trim();
-            if(frota) {
-                cadastro[frota] = { 
-                    tanque: parseKM(inputs[1].value) || 0, 
-                    kml: parseFloat(inputs[2].value.replace(',', '.')) || 1.0,
-                    kmBase: parseKM(inputs[3].value)
-                };
-            }
-        });
-        localStorage.setItem('usa_v4_cadastro', JSON.stringify(cadastro));
-        toggleModal();
-        carregarDia();
-    }
-
-    function carregarCadastro() {
-        const dados = JSON.parse(localStorage.getItem('usa_v4_cadastro') || '{}');
-        const tbody = document.getElementById('tbody-cadastro');
-        tbody.innerHTML = "";
-        const frotasCadastradas = Object.keys(dados);
-        
-        for(let i=0; i < Math.max(LINHAS, frotasCadastradas.length + 5); i++) {
-            const frota = frotasCadastradas[i] || "";
-            const info = dados[frota] || { tanque: "", kml: "", kmBase: null };
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td><input type="text" value="${frota}"></td>
-                <td><input type="text" oninput="mascaraKM(this)" value="${info.tanque ? formatarNumeroBrasil(info.tanque) : ""}"></td>
-                <td><input type="text" value="${info.kml ? info.kml.toString().replace('.', ',') : ""}"></td>
-                <td><input type="text" class="input-base" oninput="mascaraKM(this)" value="${info.kmBase ? formatarNumeroBrasil(info.kmBase) : ""}"></td>
-            `;
-            tbody.appendChild(tr);
-        }
-    }
-
-    function carregarDia() {
-        const data = document.getElementById('data-controle').value;
-        const historico = JSON.parse(localStorage.getItem('usa_v4_dados') || '{}');
-        const cadastro = JSON.parse(localStorage.getItem('usa_v4_cadastro') || '{}');
-        let lista = historico[data];
-
-        if (!lista || lista.length === 0) {
-            const datasExistentes = Object.keys(historico).sort().reverse();
-            const dataAnterior = datasExistentes.find(d => d < data);
-            if (dataAnterior) {
-                lista = historico[dataAnterior]
-                    .filter(item => item.frota && item.frota.trim() !== "")
-                    .map(item => ({ frota: item.frota, a_ini: "", a_ref: "", b_ini: "", b_ref: "", c_ini: "", c_ref: "" }));
-            } else {
-                lista = [];
-            }
-        }
-
-        const frotasInputs = document.querySelectorAll('#tbody-frota input.frota-input');
-        frotasInputs.forEach((inputF, i) => {
-            const item = lista[i] || { frota: "" };
-            inputF.value = item.frota || "";
-            const info = cadastro[item.frota];
-            const tdPai = inputF.parentElement;
-            let spanInfo = tdPai.querySelector('.frota-info') || document.createElement('span');
-            spanInfo.className = "frota-info";
-            tdPai.appendChild(spanInfo);
-            spanInfo.innerText = info ? `${info.tanque}L | ${info.kml.toString().replace('.', ',')}km/l` : "";
-
-            ['a','b','c'].forEach(t => {
-                const tr = document.querySelectorAll(`#tbody-${t} tr`)[i];
-                const inputs = tr.querySelectorAll('input');
-                inputs[0].value = item[`${t}_ini`] || "";
-                inputs[3].value = item[`${t}_ref`] || "";
-            });
-        });
-        atualizarUI();
-    }
-
-    function salvar() {
-        const dataSel = document.getElementById('data-controle').value;
-        if(!dataSel) return;
-        const historico = JSON.parse(localStorage.getItem('usa_v4_dados') || '{}');
-        let lista = [];
-        const frotas = document.querySelectorAll('#tbody-frota input.frota-input');
-        frotas.forEach((input, i) => {
-            if(input.value.trim() !== "") {
-                lista.push({
-                    frota: input.value,
-                    a_ini: document.querySelectorAll('#tbody-a tr')[i].querySelectorAll('input')[0].value,
-                    a_ref: document.querySelectorAll('#tbody-a tr')[i].querySelectorAll('input')[3].value,
-                    b_ini: document.querySelectorAll('#tbody-b tr')[i].querySelectorAll('input')[0].value,
-                    b_ref: document.querySelectorAll('#tbody-b tr')[i].querySelectorAll('input')[3].value,
-                    c_ini: document.querySelectorAll('#tbody-c tr')[i].querySelectorAll('input')[0].value,
-                    c_ref: document.querySelectorAll('#tbody-c tr')[i].querySelectorAll('input')[3].value
-                });
-            }
-        });
-        historico[dataSel] = lista;
-        localStorage.setItem('usa_v4_dados', JSON.stringify(historico));
-        atualizarUI();
-    }
-
-    function atualizarUI() {
-        const frotas = document.querySelectorAll('#tbody-frota input.frota-input');
-        const cadastro = JSON.parse(localStorage.getItem('usa_v4_cadastro') || '{}');
-        let counts = { a_aba:0, a_ref:0, b_aba:0, b_ref:0, c_aba:0, c_ref:0 };
-
-        frotas.forEach((inputF, i) => {
-            const frotaNum = inputF.value.trim();
-            if (frotaNum === "") return;
-
-            const config = cadastro[frotaNum] || { tanque: 0, kml: 1, kmBase: null };
-            const kmBaseDinamico = config.kmBase || buscarUltimoKMAntesDeHoje(frotaNum);
-
-            const kmA = parseKM(document.querySelectorAll('#tbody-a tr')[i].querySelectorAll('input')[0].value);
-            const kmB = parseKM(document.querySelectorAll('#tbody-b tr')[i].querySelectorAll('input')[0].value);
-            const kmC = parseKM(document.querySelectorAll('#tbody-c tr')[i].querySelectorAll('input')[0].value);
-
-            const turnosConfig = [
-                { t: 'a', atual: kmA, ref: kmBaseDinamico }, 
-                { t: 'b', atual: kmB, ref: kmA || kmBaseDinamico },
-                { t: 'c', atual: kmC, ref: kmB || kmA || kmBaseDinamico }
-            ];
-
-            turnosConfig.forEach(item => {
-                const tr = document.querySelectorAll(`#tbody-${item.t} tr`)[i];
-                const inputs = tr.querySelectorAll('input');
-                if(item.atual && item.ref) {
-                    const kmRodado = Math.max(0, item.atual - item.ref);
-                    const litrosGastos = kmRodado / config.kml;
-                    const autonomia = Math.max(0, (config.tanque - litrosGastos) * config.kml);
-                    inputs[1].value = litrosGastos.toFixed(1) + " L";
-                    inputs[2].value = autonomia.toFixed(0) + " KM";
-                    if (autonomia < 50 && autonomia > 0) inputs[2].classList.add('autonomia-alerta');
-                    else inputs[2].classList.remove('autonomia-alerta');
-                } else {
-                    inputs[1].value = ""; inputs[2].value = "";
-                }
-                if(inputs[0].value) counts[`${item.t}_aba`]++;
-                if(inputs[3].value) counts[`${item.t}_ref`]++;
-            });
-        });
-
-        // Lógica de dia operacional: 05:00 as 04:59
+    function atualizarDataHora() {
         const agora = new Date();
-        const hora = agora.getHours();
-        let tAtivo = (hora >= 7 && hora < 15) ? 'a' : (hora >= 15 && hora < 23) ? 'b' : 'c';
-
-        ['a','b','c'].forEach(t => {
-            const head = document.getElementById(`head-${t}`);
-            const card = document.getElementById(`card-${t}`);
-            if(head) head.className = 'titulo-coluna' + (t === tAtivo ? ' ativo' : '');
-            if(card) card.style.border = t === tAtivo ? '2px solid var(--ativo)' : '1px solid var(--borda)';
-            document.getElementById(`db-${t}-aba`).innerText = counts[`${t}_aba`];
-            document.getElementById(`db-${t}-ref`).innerText = counts[`${t}_ref`];
-        });
-    }
-
-    function inicializar() {
-        if(!document.getElementById('data-controle').value) {
-            document.getElementById('data-controle').value = new Date().toISOString().split('T')[0];
+        const data = agora.toLocaleDateString('pt-BR');
+        const hora = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const divDataHora = document.getElementById('dataHora');
+        if (divDataHora) {
+            divDataHora.innerHTML = `📅 ${data} ⏰ ${hora}`;
         }
-        ['tbody-frota', 'tbody-a', 'tbody-b', 'tbody-c'].forEach(id => {
-            const corpo = document.getElementById(id);
-            corpo.innerHTML = "";
-            for(let i=0; i<LINHAS; i++) {
-                const tr = document.createElement('tr');
-                if(id === 'tbody-frota') {
-                    tr.innerHTML = `<td><input type="text" class="frota-input" onblur="salvar()"></td>`;
-                } else {
-                    tr.innerHTML = `<td><input type="text" oninput="mascaraKM(this)" onblur="salvar()"></td>
-                                    <td><input type="text" readonly style="color:#d35400;"></td>
-                                    <td><input type="text" readonly style="color:#2980b9;"></td>
-                                    <td class="col-ref"><input type="text" onblur="salvar()"></td>`;
-                }
-                corpo.appendChild(tr);
-            }
-        });
-        carregarDia();
-        setInterval(atualizarUI, 5000);
     }
-    window.onload = inicializar;
+
+    setInterval(atualizarDataHora, 1000);
+    atualizarDataHora();
 </script>
-    <!-- Firebase App (the core Firebase SDK) is always required and must be listed first -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyCnBug9V28EZG1NNzYjqShsYesjgewroPo",
-            authDomain: "torre-ctt-usa.firebaseapp.com",
-            projectId: "torre-ctt-usa",
-            storageBucket: "torre-ctt-usa.firebasestorage.app",
-            messagingSenderId: "655932765006",
-            appId: "1:655932765006:web:f2e239fb0a1b2f5867241f"
-        };
-
-        const app = initializeApp(firebaseConfig);
-    </script>
 </body>
 </html>
